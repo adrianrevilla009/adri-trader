@@ -63,6 +63,11 @@
         <artifactId>trading-broker-sim</artifactId>
         <version>${project.version}</version>
       </dependency>
+      <dependency>
+        <groupId>com.adrianrevilla.trading</groupId>
+        <artifactId>trading-strategies</artifactId>
+        <version>${project.version}</version>
+      </dependency>
     </dependencies>
   </dependencyManagement>
 
