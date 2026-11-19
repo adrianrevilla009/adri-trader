@@ -15,6 +15,7 @@
     <module>trading-backtest</module>
     <module>trading-strategies</module>
     <module>trading-risk</module>
+    <module>trading-execution</module>
     <module>trading-broker-sim</module>
     <module>trading-broker-etoro</module>
     <module>trading-arena</module>
@@ -66,6 +67,11 @@
       <dependency>
         <groupId>com.adrianrevilla.trading</groupId>
         <artifactId>trading-strategies</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.adrianrevilla.trading</groupId>
+        <artifactId>trading-execution</artifactId>
         <version>${project.version}</version>
       </dependency>
     </dependencies>

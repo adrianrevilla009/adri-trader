@@ -24,12 +24,6 @@ import org.springframework.scheduling.annotation.Scheduled;
 public class DataConfig {
 
     @Bean
-    @ConditionalOnMissingBean
-    Alerter alerter() {
-        return new LoggingAlerter();
-    }
-
-    @Bean
     TradingCalendar xetraCalendar() {
         return new XetraCalendar();
     }

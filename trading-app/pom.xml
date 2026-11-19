@@ -17,6 +17,7 @@
     <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-backtest</artifactId><version>${project.version}</version></dependency>
     <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-strategies</artifactId><version>${project.version}</version></dependency>
     <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-risk</artifactId><version>${project.version}</version></dependency>
+    <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-execution</artifactId><version>${project.version}</version></dependency>
     <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-broker-sim</artifactId><version>${project.version}</version></dependency>
     <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-broker-etoro</artifactId><version>${project.version}</version></dependency>
     <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-arena</artifactId><version>${project.version}</version></dependency>

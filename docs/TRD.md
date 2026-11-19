@@ -51,7 +51,8 @@ Principios:
 | `trading-backtest` | Motor de simulación, modelo de costes, validación, informes | core, data |
 | `trading-strategies` | Las cuatro estrategias y sus parámetros | core (+ ta4j) |
 | `trading-risk` | Reglas de riesgo y kill switch | core |
-| `trading-broker-sim` | `SimulatedBroker` | core |
+| `trading-execution` | Máquina de estados de órdenes, `ExecutionService`, reconciliación, dry-run | core |
+| `trading-broker-sim` | `SimulatedBroker` y `FaultInjectingBroker` (tests de fallos) | core |
 | `trading-broker-etoro` | `EToroBroker` (REST) | core |
 | `trading-arena` | Orquestador, agentes, controles, métricas | core, backtest, risk, broker-sim |
 | `trading-tax` | `TaxLedger`, exportaciones | core |
@@ -96,7 +97,7 @@ public interface RiskRule {
 | `fx_rate` | Cambio diario a EUR (v2) | divisa + fecha |
 | `corporate_action` | Dividendos, splits, cambios de ticker | instrumento + fecha + tipo |
 | `trading_calendar` | Días de negociación por bolsa | bolsa + fecha |
-| `order`, `fill`, `cash_ledger` | Libro de operaciones, inmutable (solo inserciones; correcciones como asientos compensatorios) | ids |
+| `trade_order`, `fill`, `cash_ledger` (`order` es palabra reservada en SQL) | Libro de operaciones, inmutable (solo inserciones; correcciones como asientos compensatorios) | ids |
 | `data_quality_issue` | Anomalías y estado | id |
 | `backtest_run` | Config, hash de datos, commit, métricas, informe | run id |
 | `agent`, `agent_state` | Configuración y estado del agente, ciclo de vida | agent id |
