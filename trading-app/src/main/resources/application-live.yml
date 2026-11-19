@@ -1,0 +1,5 @@
+trading:
+  mode: LIVE    # real money; only after Gate 4
+  risk:
+    # Stricter than the arena at the start (phase 5).
+    max-daily-loss: 0.01
