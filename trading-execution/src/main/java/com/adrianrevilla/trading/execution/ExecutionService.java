@@ -2,6 +2,7 @@ package com.adrianrevilla.trading.execution;
 
 import com.adrianrevilla.trading.core.Alerter;
 import com.adrianrevilla.trading.core.Broker;
+import com.adrianrevilla.trading.core.BrokerAccessDeniedException;
 import com.adrianrevilla.trading.core.BrokerException;
 import com.adrianrevilla.trading.core.BrokerOrder;
 import com.adrianrevilla.trading.core.BrokerRejectedException;
@@ -51,6 +52,10 @@ public final class ExecutionService {
         try {
             broker.submit(request);
             return SendOutcome.SUBMITTED;
+        } catch (BrokerAccessDeniedException e) {
+            orders.updateState(request.internalId(), OrderState.REJECTED, e.getMessage());
+            halt("Broker denied access: " + e.getMessage());
+            return SendOutcome.REJECTED;
         } catch (BrokerRejectedException e) {
             orders.updateState(request.internalId(), OrderState.REJECTED, e.getMessage());
             return SendOutcome.REJECTED;

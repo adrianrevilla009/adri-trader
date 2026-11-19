@@ -103,6 +103,17 @@ class ExecutionPersistenceTest {
     }
 
     @Test
+    void brokerReferenceIsStoredWithTheOrderAndSurvivesANewInstance() {
+        var o = buy("10");
+        repo.create(o);
+        new JdbcBrokerRefStore(ds).put(o.internalId(), "E-77");
+        assertThat(new JdbcBrokerRefStore(ds).get(o.internalId())).contains("E-77");
+        assertThat(new JdbcBrokerRefStore(ds).get(UUID.randomUUID())).isEmpty();
+        assertThatThrownBy(() -> new JdbcBrokerRefStore(ds).put(UUID.randomUUID(), "x"))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
     void unknownInstrumentCannotBeOrdered() {
         var o = new OrderRequest(UUID.randomUUID(), "agent", new Isin("IE00B3XXRP09"), Side.BUY, BigDecimal.TEN, null);
         assertThatThrownBy(() -> repo.create(o)).isInstanceOf(IllegalArgumentException.class);
