@@ -15,5 +15,6 @@
     <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-backtest</artifactId></dependency>
     <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-risk</artifactId></dependency>
     <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-broker-sim</artifactId></dependency>
+    <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-strategies</artifactId></dependency>
   </dependencies>
 </project>

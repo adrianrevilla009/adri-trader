@@ -59,17 +59,30 @@ public final class Rules {
         });
     }
 
-    /** Fall from the agent peak: shuts the agent down. */
+    /** Fall from the agent peak: shuts the agent down. Checked per agent, not only per order. */
     public static RiskRule agentDrawdown(RiskConfig cfg) {
-        return rule("agent-drawdown", (o, c) -> {
-            if (c.peakEquity().signum() <= 0) {
-                return APPROVE;
+        return new RiskRule() {
+            @Override
+            public String name() {
+                return "agent-drawdown";
             }
-            BigDecimal dd = c.peakEquity().subtract(c.equity()).divide(c.peakEquity(), MC);
-            return dd.compareTo(cfg.agentMaxDrawdown()) >= 0
-                    ? new Decision.Shutdown("drawdown " + pct(dd) + " reached limit " + pct(cfg.agentMaxDrawdown()))
-                    : APPROVE;
-        });
+
+            @Override
+            public Decision evaluate(OrderRequest order, RiskContext c) {
+                return evaluateAgent(c);
+            }
+
+            @Override
+            public Decision evaluateAgent(RiskContext c) {
+                if (c.peakEquity().signum() <= 0) {
+                    return APPROVE;
+                }
+                BigDecimal dd = c.peakEquity().subtract(c.equity()).divide(c.peakEquity(), MC);
+                return dd.compareTo(cfg.agentMaxDrawdown()) >= 0
+                        ? new Decision.Shutdown("drawdown " + pct(dd) + " reached limit " + pct(cfg.agentMaxDrawdown()))
+                        : APPROVE;
+            }
+        };
     }
 
     /** Order size against average daily traded value. Trims, or rejects if what is left is below the minimum. */

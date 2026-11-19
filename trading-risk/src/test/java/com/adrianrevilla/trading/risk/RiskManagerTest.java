@@ -88,6 +88,15 @@ class RiskManagerTest {
     }
 
     @Test
+    void drawdownShutsTheAgentDownEvenWhenItProposesNoOrders() {
+        // fully invested and already at the target: no orders, but 20 % below the peak
+        var c = ctx(Map.of(A, bd("8")), "0", "80", "100", Set.of(), true);
+        var review = manager.review("agent", target(A, "1.0"), c);
+        assertThat(review.orders()).isEmpty();
+        assertThat(review.shutdownAgent()).isTrue();
+    }
+
+    @Test
     void fatFingerPriceIsRejected() {
         var rule = Rules.fatFinger(cfg);
         assertThat(rule.evaluate(order(A, Side.BUY, "10", "10.2"), ctx())).isInstanceOf(Decision.Approve.class);
