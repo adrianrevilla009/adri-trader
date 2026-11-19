@@ -114,6 +114,24 @@ class ExecutionPersistenceTest {
     }
 
     @Test
+    void ledgerFillsFeedTheTaxLedger() {
+        var buyOrder = buy("100");
+        repo.create(buyOrder);
+        repo.updateState(buyOrder.internalId(), OrderState.SUBMITTED, "ok");
+        repo.recordFill(buyOrder.internalId(), new BigDecimal("10"), new BigDecimal("10"), new BigDecimal("100"));
+        var sellOrder = new OrderRequest(UUID.randomUUID(), "agent", ISIN, Side.SELL, new BigDecimal("120"), null);
+        repo.create(sellOrder);
+        repo.updateState(sellOrder.internalId(), OrderState.SUBMITTED, "ok");
+        repo.recordFill(sellOrder.internalId(), new BigDecimal("10"), new BigDecimal("12"), new BigDecimal("120"));
+
+        var trades = new JdbcTaxTradeSource(ds).trades("agent");
+        assertThat(trades).hasSize(2);
+        var report = new com.adrianrevilla.trading.tax.TaxLedger().compute(trades, java.time.LocalDate.now().plusYears(1));
+        assertThat(report.sales()).hasSize(1);
+        assertThat(report.sales().get(0).gainLoss()).isEqualByComparingTo("20");
+    }
+
+    @Test
     void unknownInstrumentCannotBeOrdered() {
         var o = new OrderRequest(UUID.randomUUID(), "agent", new Isin("IE00B3XXRP09"), Side.BUY, BigDecimal.TEN, null);
         assertThatThrownBy(() -> repo.create(o)).isInstanceOf(IllegalArgumentException.class);
