@@ -6,7 +6,7 @@ import java.math.BigDecimal;
 public interface RiskRule {
     String name();
 
-    Decision evaluate(OrderRequest order, PortfolioState state);
+    Decision evaluate(OrderRequest order, RiskContext context);
 
     sealed interface Decision {
         record Approve() implements Decision {}
@@ -15,6 +15,10 @@ public interface RiskRule {
 
         record Reject(String reason) implements Decision {}
 
+        /** Not now (for example market closed); the caller may try again later. */
         record Defer(String reason) implements Decision {}
+
+        /** Turns the agent off and raises an alert; nothing else is sent. */
+        record Shutdown(String reason) implements Decision {}
     }
 }

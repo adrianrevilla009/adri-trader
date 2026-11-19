@@ -5,15 +5,20 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-/** Only contract strategies/engine know about a broker; simulated or real is decided by configuration. */
+/** Only contract the engine knows about a broker; simulated or real is decided by configuration. */
 public interface Broker {
-    void submit(OrderRequest request);
+    /**
+     * @throws BrokerRejectedException the broker definitively refused the order
+     * @throws BrokerUnavailableException the outcome is unknown: the order may or may not have arrived
+     */
+    void submit(OrderRequest request) throws BrokerException;
 
-    void cancel(UUID internalId);
+    void cancel(UUID internalId) throws BrokerException;
 
-    Optional<OrderState> status(UUID internalId);
+    /** Empty when the broker has no trace of the order. */
+    Optional<BrokerOrder> lookup(UUID internalId) throws BrokerException;
 
-    Map<Isin, BigDecimal> positions();
+    Map<Isin, BigDecimal> positions() throws BrokerException;
 
-    BigDecimal cash();
+    BigDecimal cash() throws BrokerException;
 }
