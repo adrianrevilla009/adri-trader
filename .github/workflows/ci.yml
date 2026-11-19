@@ -13,5 +13,7 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: maven
+      - name: Pin Docker API version (Testcontainers client defaults to 1.32, too old for the runner)
+        run: echo "api.version=1.44" > ~/.docker-java.properties
       - name: Build and test (Testcontainers uses the Docker of the runner)
         run: mvn -B verify
