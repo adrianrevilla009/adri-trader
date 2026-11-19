@@ -1,0 +1,37 @@
+spring:
+  application:
+    name: etf-trading-bot
+  profiles:
+    default: dev
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/trading}
+    username: ${DB_USER:trading}
+    password: ${DB_PASSWORD:trading}
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  server:
+    address: 127.0.0.1
+
+trading:
+  # Risk limits live in configuration, not code. Changing the starting values requires an ADR (ADR-0016).
+  risk:
+    max-weight-per-asset: 0.25
+    max-daily-loss: 0.02
+    agent-max-drawdown: 0.15
+  etoro:
+    # Secrets only through environment variables; nothing sensitive in the repository (ADR-0010).
+    base-url: https://public-api.etoro.com/api/v1/
+    api-key: ${ETORO_API_KEY:}
+    user-key: ${ETORO_USER_KEY:}
+    max-reads-per-minute: 60
+    max-writes-per-minute: 20
+  telegram:
+    bot-token: ${TELEGRAM_BOT_TOKEN:}
+    chat-id: ${TELEGRAM_CHAT_ID:}

@@ -1,0 +1,5 @@
+# Initial universe (ADR-0001): 10-15 UCITS accumulating ETFs in EUR on Xetra, 12+ years of history.
+# Pending phase 0: confirm each ISIN is available as a real (non-CFD) instrument in the eToro catalogue.
+# Do not fill with unverified ISINs.
+benchmark: null      # global UCITS accumulating ETF (MSCI World or FTSE All-World)
+instruments: []
