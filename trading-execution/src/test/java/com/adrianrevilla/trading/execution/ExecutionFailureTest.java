@@ -158,6 +158,25 @@ class ExecutionFailureTest {
     }
 
     @Test
+    void revokedApiAccessHaltsTradingAndAlerts() {
+        var denied = new com.adrianrevilla.trading.core.Broker() {
+            public void submit(OrderRequest r) throws com.adrianrevilla.trading.core.BrokerException {
+                throw new com.adrianrevilla.trading.core.BrokerAccessDeniedException("401");
+            }
+            public void cancel(UUID id) {}
+            public java.util.Optional<com.adrianrevilla.trading.core.BrokerOrder> lookup(UUID id) { return java.util.Optional.empty(); }
+            public Map<Isin, BigDecimal> positions() { return Map.of(); }
+            public BigDecimal cash() { return BigDecimal.ZERO; }
+        };
+        var svc = new ExecutionService(denied, repo, kill, (l, m) -> alerts.add(l + ":" + m), new Reconciler(BigDecimal.ZERO));
+        var o = buy("10");
+        assertThat(svc.send(o)).isEqualTo(SendOutcome.REJECTED);
+        assertThat(kill.isActive()).isTrue();
+        assertThat(alerts).anyMatch(a -> a.contains("denied access"));
+        assertThat(svc.send(buy("10"))).isEqualTo(SendOutcome.BLOCKED);
+    }
+
+    @Test
     void dryRunNeverReachesTheBroker() {
         var dry = new DryRunBroker(sim);
         var svc = new ExecutionService(dry, repo, kill, (l, m) -> {}, new Reconciler(BigDecimal.ZERO));

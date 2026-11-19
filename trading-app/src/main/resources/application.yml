@@ -27,7 +27,7 @@ trading:
     agent-max-drawdown: 0.15
   etoro:
     # Secrets only through environment variables; nothing sensitive in the repository (ADR-0010).
-    base-url: https://public-api.etoro.com/api/v1/
+    base-url: https://public-api.etoro.com
     api-key: ${ETORO_API_KEY:}
     user-key: ${ETORO_USER_KEY:}
     max-reads-per-minute: 60
