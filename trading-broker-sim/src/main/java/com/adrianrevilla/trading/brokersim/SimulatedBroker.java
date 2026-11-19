@@ -9,6 +9,7 @@ import com.adrianrevilla.trading.core.OrderRequest;
 import com.adrianrevilla.trading.core.OrderState;
 import java.math.BigDecimal;
 import java.math.MathContext;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -18,13 +19,17 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Own simulator for the arena (ADR-0022). Orders wait until {@link #executePending} is called with the open
- * prices of the next day; they fill at that price moved against the trader by the cost model. Same interface as
- * the real broker.
+ * Own simulator, shared by the backtest and the arena so both execute identically (ADR-0022). Orders wait until
+ * {@link #executePending} is called with the open prices of the next day; they fill at that price moved against
+ * the trader by the cost model. Same interface as the real broker.
  */
 public final class SimulatedBroker implements Broker {
     private static final MathContext MC = MathContext.DECIMAL128;
     private static final BigDecimal DUST = new BigDecimal("1e-9");
+
+    /** One execution; {@code costEur} is what spread and slippage cost against the open price. */
+    public record Fill(LocalDate date, UUID orderId, Isin isin, OrderRequest.Side side, BigDecimal quantity,
+            BigDecimal price, BigDecimal amountEur, BigDecimal costEur) {}
 
     private final ExecutionCosts costs;
     private BigDecimal cash;
@@ -32,6 +37,7 @@ public final class SimulatedBroker implements Broker {
     private final Map<Isin, BigDecimal> units = new HashMap<>();
     private final Map<UUID, OrderRequest> requests = new LinkedHashMap<>();
     private final Map<UUID, BrokerOrder> orders = new LinkedHashMap<>();
+    private final List<Fill> fills = new ArrayList<>();
 
     public SimulatedBroker(ExecutionCosts costs, BigDecimal initialCash) {
         this.costs = costs;
@@ -84,8 +90,17 @@ public final class SimulatedBroker implements Broker {
         return orders.size();
     }
 
-    /** Executes pending orders at the given open prices: sells first, then buys. */
-    public synchronized void executePending(Map<Isin, BigDecimal> opens) {
+    public synchronized List<Fill> fills() {
+        return List.copyOf(fills);
+    }
+
+    /** Same as {@link #executePending(LocalDate, Map)} without a date (used where dates do not matter). */
+    public void executePending(Map<Isin, BigDecimal> opens) {
+        executePending(LocalDate.EPOCH, opens);
+    }
+
+    /** Executes pending orders at the given open prices: sells first, then buys scaled to the cash available. */
+    public synchronized void executePending(LocalDate date, Map<Isin, BigDecimal> opens) {
         List<UUID> sells = new ArrayList<>();
         List<UUID> buys = new ArrayList<>();
         for (var e : orders.entrySet()) {
@@ -94,57 +109,80 @@ public final class SimulatedBroker implements Broker {
                 (requests.get(e.getKey()).side() == OrderRequest.Side.SELL ? sells : buys).add(e.getKey());
             }
         }
-        sells.forEach(id -> fill(id, opens));
-        buys.forEach(id -> fill(id, opens));
+        sells.forEach(id -> fillSell(date, id, opens));
+
+        BigDecimal wanted = BigDecimal.ZERO;
+        for (UUID id : buys) {
+            if (opens.containsKey(requests.get(id).isin())) {
+                wanted = wanted.add(buyTarget(id));
+            }
+        }
+        BigDecimal scale = wanted.compareTo(cash) > 0 && wanted.signum() > 0 ? cash.divide(wanted, MC) : BigDecimal.ONE;
+        buys.forEach(id -> fillBuy(date, id, opens, scale));
     }
 
-    private void fill(UUID id, Map<Isin, BigDecimal> opens) {
+    private BigDecimal buyTarget(UUID id) {
+        OrderRequest r = requests.get(id);
+        BrokerOrder o = orders.get(id);
+        return r.amountEur().subtract(o.filledAmountEur()).min(r.amountEur().multiply(maxFillFraction, MC));
+    }
+
+    private void fillBuy(LocalDate date, UUID id, Map<Isin, BigDecimal> opens, BigDecimal scale) {
         OrderRequest r = requests.get(id);
         BrokerOrder o = orders.get(id);
         BigDecimal open = opens.get(r.isin());
         if (open == null) {
             return; // no price today: stays pending
         }
-        BigDecimal adverse = costs.adverseFraction(r.isin());
-        BigDecimal remaining = r.amountEur().subtract(o.filledAmountEur());
-        BigDecimal target = remaining.min(r.amountEur().multiply(maxFillFraction, MC));
-        BigDecimal amount;
-        BigDecimal price;
-        BigDecimal qty;
-        if (r.side() == OrderRequest.Side.BUY) {
-            price = open.multiply(BigDecimal.ONE.add(adverse), MC);
-            amount = target.min(cash);
-            if (amount.signum() <= 0) {
-                orders.put(id, new BrokerOrder(id, o.filledAmountEur().signum() > 0 ? OrderState.CANCELLED
-                        : OrderState.REJECTED, o.filledAmountEur(), o.filledQuantity(), o.averagePrice()));
-                return;
-            }
-            qty = amount.divide(price, MC);
-            cash = cash.subtract(amount);
-            units.merge(r.isin(), qty, BigDecimal::add);
-        } else {
-            price = open.multiply(BigDecimal.ONE.subtract(adverse), MC);
-            BigDecimal held = units.getOrDefault(r.isin(), BigDecimal.ZERO);
-            qty = target.divide(open, MC).min(held);
-            if (qty.signum() <= 0) {
-                orders.put(id, new BrokerOrder(id, OrderState.REJECTED, o.filledAmountEur(), o.filledQuantity(),
-                        o.averagePrice()));
-                return;
-            }
-            amount = qty.multiply(price, MC);
-            cash = cash.add(amount);
-            BigDecimal left = held.subtract(qty);
-            if (left.compareTo(DUST) < 0) {
-                units.remove(r.isin());
-            } else {
-                units.put(r.isin(), left);
-            }
+        BigDecimal amount = buyTarget(id).multiply(scale, MC).min(cash);
+        if (amount.signum() <= 0) {
+            finish(id, o, o.filledAmountEur().signum() > 0 ? OrderState.CANCELLED : OrderState.REJECTED);
+            return;
         }
+        BigDecimal price = open.multiply(BigDecimal.ONE.add(costs.adverseFraction(r.isin())), MC);
+        BigDecimal qty = amount.divide(price, MC);
+        cash = cash.subtract(amount);
+        units.merge(r.isin(), qty, BigDecimal::add);
+        record(date, id, r, o, qty, price, amount, qty.multiply(price.subtract(open), MC));
+    }
+
+    private void fillSell(LocalDate date, UUID id, Map<Isin, BigDecimal> opens) {
+        OrderRequest r = requests.get(id);
+        BrokerOrder o = orders.get(id);
+        BigDecimal open = opens.get(r.isin());
+        if (open == null) {
+            return;
+        }
+        BigDecimal held = units.getOrDefault(r.isin(), BigDecimal.ZERO);
+        BigDecimal qty = r.closePosition() ? held : buyTarget(id).divide(open, MC).min(held);
+        if (qty.signum() <= 0) {
+            finish(id, o, OrderState.REJECTED);
+            return;
+        }
+        BigDecimal price = open.multiply(BigDecimal.ONE.subtract(costs.adverseFraction(r.isin())), MC);
+        BigDecimal amount = qty.multiply(price, MC);
+        cash = cash.add(amount);
+        BigDecimal left = held.subtract(qty);
+        if (left.compareTo(DUST) < 0) {
+            units.remove(r.isin());
+        } else {
+            units.put(r.isin(), left);
+        }
+        record(date, id, r, o, qty, price, amount, qty.multiply(open.subtract(price), MC));
+    }
+
+    private void record(LocalDate date, UUID id, OrderRequest r, BrokerOrder o, BigDecimal qty, BigDecimal price,
+            BigDecimal amount, BigDecimal cost) {
+        fills.add(new Fill(date, id, r.isin(), r.side(), qty, price, amount, cost));
         BigDecimal totalAmount = o.filledAmountEur().add(amount);
         BigDecimal totalQty = o.filledQuantity().add(qty);
-        BigDecimal avg = totalAmount.divide(totalQty, MC);
-        boolean done = totalAmount.compareTo(r.amountEur().subtract(new BigDecimal("0.000001"))) >= 0;
+        boolean done = r.closePosition()
+                || totalAmount.compareTo(r.amountEur().subtract(new BigDecimal("0.000001"))) >= 0;
         orders.put(id, new BrokerOrder(id, done ? OrderState.FILLED : OrderState.PARTIALLY_FILLED, totalAmount,
-                totalQty, avg));
+                totalQty, totalAmount.divide(totalQty, MC)));
+    }
+
+    private void finish(UUID id, BrokerOrder o, OrderState state) {
+        orders.put(id, new BrokerOrder(id, state, o.filledAmountEur(), o.filledQuantity(), o.averagePrice()));
     }
 }

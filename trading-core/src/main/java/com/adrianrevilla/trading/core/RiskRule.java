@@ -8,6 +8,14 @@ public interface RiskRule {
 
     Decision evaluate(OrderRequest order, RiskContext context);
 
+    /**
+     * Agent-level check, run on every review even when there are no orders (for example drawdown: an agent that
+     * is fully invested and falling proposes no orders but must still be shut down).
+     */
+    default Decision evaluateAgent(RiskContext context) {
+        return new Decision.Approve();
+    }
+
     sealed interface Decision {
         record Approve() implements Decision {}
 
