@@ -12,5 +12,6 @@
   <description>Ingestion, calendar, data quality</description>
   <dependencies>
     <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-core</artifactId></dependency>
+    <dependency><groupId>org.springframework</groupId><artifactId>spring-jdbc</artifactId></dependency>
   </dependencies>
 </project>
