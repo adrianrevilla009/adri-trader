@@ -37,7 +37,7 @@ class YahooBarSourceTest {
             methods.add(ex.getRequestMethod());
             boolean firstChunk = ex.getRequestURI().getRawQuery().contains("period1=1577836800"); // 2020-01-01
             byte[] body = (firstChunk ? CHUNK : EMPTY).getBytes(StandardCharsets.UTF_8);
-            ex.sendResponseHeaders(200, body.length);
+            ex.sendResponseHeaders(firstChunk ? 200 : 400, body.length); // Yahoo answers 400 for ranges before the listing
             ex.getResponseBody().write(body);
             ex.close();
         });

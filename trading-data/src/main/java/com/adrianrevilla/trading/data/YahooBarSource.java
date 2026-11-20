@@ -69,6 +69,9 @@ public class YahooBarSource implements BarSource {
                 .header("User-Agent", "Mozilla/5.0").GET().build();
         try {
             HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() == 400 || response.statusCode() == 404) {
+                return ""; // a chunk that starts before the listing existed; the final empty check catches real failures
+            }
             if (response.statusCode() / 100 != 2) {
                 throw new IOException("Yahoo answered " + response.statusCode());
             }
@@ -80,6 +83,9 @@ public class YahooBarSource implements BarSource {
     }
 
     private void parse(String body, TreeMap<LocalDate, Bar> out) throws IOException {
+        if (body.isBlank()) {
+            return;
+        }
         JsonNode result = json.readTree(body).path("chart").path("result");
         if (!result.isArray() || result.isEmpty()) {
             return; // a chunk before the listing exists comes back empty

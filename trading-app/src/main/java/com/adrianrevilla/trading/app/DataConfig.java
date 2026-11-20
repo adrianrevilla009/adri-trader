@@ -62,7 +62,7 @@ public class DataConfig {
         } else {
             source = new CsvDirectoryBarSource("csv", Path.of(csvDir));
         }
-        var job = new DailyIngestionJob(service, source, isins.stream().map(Isin::new).toList(), "XETRA", alerter, 2000);
+        var job = new DailyIngestionJob(service, source, isins.stream().map(Isin::new).toList(), "XETRA", alerter, 2000, clock, 30);
         return new ScheduledIngestion(job, runOnStartup);
     }
 
@@ -78,9 +78,11 @@ public class DataConfig {
             @Value("${trading.ingestion.isins}") List<String> isins,
             @Value("${trading.arena.benchmark}") String benchmark,
             @Value("${trading.arena.capital:100}") java.math.BigDecimal capital,
-            @Value("${trading.arena.report-dir:reports/arena}") String reportDir) {
+            @Value("${trading.arena.report-dir:reports/arena}") String reportDir,
+            @Value("${trading.arena.start-date:}") String startDate) {
         var job = new ArenaDailyJob(repository, isins.stream().map(Isin::new).toList(), new Isin(benchmark), "XETRA",
-                capital, journal, alerter, Path.of(reportDir));
+                capital, journal, alerter, Path.of(reportDir),
+                startDate.isBlank() ? null : java.time.LocalDate.parse(startDate));
         return new ScheduledArena(job);
     }
 
