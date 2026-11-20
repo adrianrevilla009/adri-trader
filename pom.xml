@@ -30,7 +30,7 @@
     <spring-boot.version>3.5.14</spring-boot.version>
     <!-- Security overrides: versions with fixes newer than what Spring Boot manages. Remove when Boot catches up. -->
     <jackson-bom.version>2.21.7</jackson-bom.version>
-    <micrometer-bom.version>1.15.12</micrometer-bom.version>
+    <micrometer-bom.version>1.17.2</micrometer-bom.version>
     <spring-framework-bom.version>6.2.19</spring-framework-bom.version>
     <postgresql.override.version>42.7.12</postgresql.override.version>
   </properties>
