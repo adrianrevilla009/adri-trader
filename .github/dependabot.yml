@@ -10,6 +10,15 @@ updates:
     open-pull-requests-limit: 5
     commit-message:
       prefix: "build(deps)"
+    # Majors that need a planned migration are not automatic (see docs/ci-cd.md).
+    ignore:
+      - dependency-name: "org.springframework.boot:*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "org.springframework:*"
+        update-types: ["version-update:semver-major"]
+      # Managed by Spring Boot: only the CVE overrides in pom.xml move off its line, by hand.
+      - dependency-name: "io.micrometer:*"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
     groups:
       spring:
         patterns: ["org.springframework*"]
@@ -30,6 +39,12 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # The runtime is Java 21 (what tests and scans cover). Changing the JDK is a decision, not a bump.
+    ignore:
+      - dependency-name: "maven"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "eclipse-temurin"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
     commit-message:
       prefix: "build(deps)"
 
@@ -37,5 +52,9 @@ updates:
     directory: /infra/terraform
     schedule:
       interval: weekly
+    # Provider majors only once the code has been applied for real.
+    ignore:
+      - dependency-name: "hashicorp/azurerm"
+        update-types: ["version-update:semver-major"]
     commit-message:
       prefix: "build(deps)"
