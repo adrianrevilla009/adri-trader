@@ -221,7 +221,19 @@ jobs:
           tags: etf-trading-bot:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      - name: Vulnerability scan (fails on fixable HIGH or CRITICAL)
+      - name: Vulnerability report to code scanning (SARIF, never fails)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          version: v0.76.2
+          image-ref: etf-trading-bot:ci
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '0'
+          trivyignores: .trivyignore
+          format: sarif
+          output: trivy-image.sarif
+      - name: Vulnerability gate (table in the log, fails on fixable HIGH or CRITICAL)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           version: v0.76.2
@@ -231,8 +243,7 @@ jobs:
           ignore-unfixed: true
           exit-code: '1'
           trivyignores: .trivyignore
-          format: sarif
-          output: trivy-image.sarif
+          format: table
       - name: Upload to code scanning
         if: always() && github.event_name != 'pull_request'
         uses: github/codeql-action/upload-sarif@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4
