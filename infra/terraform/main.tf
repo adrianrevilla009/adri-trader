@@ -36,6 +36,9 @@ resource "azurerm_resource_group" "main" {
 
 # --- Database: the same PostgreSQL 16 as docker-compose, as a managed server ---------------------------------
 
+# Exception AZU-0022, accepted on purpose: this learning setup is reached from a home connection, and the firewall
+# below admits a single IP. Switch to private access (VNet integration) before holding real data.
+#trivy:ignore:AZU-0022
 resource "azurerm_postgresql_flexible_server" "main" {
   name                = "psql-${local.prefix}"
   resource_group_name = azurerm_resource_group.main.name
@@ -52,6 +55,25 @@ resource "azurerm_postgresql_flexible_server" "main" {
   public_network_access_enabled = true # reachable from your IP only, see the firewall rule below
 
   tags = local.tags
+}
+
+# Audit-friendly server settings.
+resource "azurerm_postgresql_flexible_server_configuration" "log_connections" {
+  name      = "log_connections"
+  server_id = azurerm_postgresql_flexible_server.main.id
+  value     = "on"
+}
+
+resource "azurerm_postgresql_flexible_server_configuration" "log_checkpoints" {
+  name      = "log_checkpoints"
+  server_id = azurerm_postgresql_flexible_server.main.id
+  value     = "on"
+}
+
+resource "azurerm_postgresql_flexible_server_configuration" "connection_throttle" {
+  name      = "connection_throttle.enable"
+  server_id = azurerm_postgresql_flexible_server.main.id
+  value     = "on"
 }
 
 resource "azurerm_postgresql_flexible_server_database" "trading" {
@@ -71,6 +93,9 @@ resource "azurerm_postgresql_flexible_server_firewall_rule" "my_ip" {
 
 # --- Secrets: eToro keys, Telegram token and kill switch token live here, never in git -----------------------
 
+# Exception AZU-0016, accepted for dev only: purge protection is on for every environment other than dev
+# (see purge_protection_enabled), so a dev vault can be destroyed and recreated while practicing.
+#trivy:ignore:AZU-0016
 resource "azurerm_key_vault" "main" {
   name                       = "kv-${local.prefix}"
   resource_group_name        = azurerm_resource_group.main.name
@@ -78,9 +103,15 @@ resource "azurerm_key_vault" "main" {
   tenant_id                  = data.azurerm_client_config.current.tenant_id
   sku_name                   = "standard"
   rbac_authorization_enabled = true
-  purge_protection_enabled   = false # learning setup: lets you destroy and recreate with the same name
+  purge_protection_enabled   = var.environment != "dev" # in dev it can be destroyed and recreated with the same name
   soft_delete_retention_days = 7
   tags                       = local.tags
+
+  network_acls {
+    default_action = "Deny"
+    bypass         = "AzureServices"
+    ip_rules       = [var.my_public_ip]
+  }
 }
 
 # The person running terraform may manage secrets in the vault.
@@ -91,10 +122,12 @@ resource "azurerm_role_assignment" "vault_admin" {
 }
 
 resource "azurerm_key_vault_secret" "db_password" {
-  name         = "db-admin-password"
-  value        = var.db_admin_password
-  key_vault_id = azurerm_key_vault.main.id
-  depends_on   = [azurerm_role_assignment.vault_admin]
+  name            = "db-admin-password"
+  value           = var.db_admin_password
+  content_type    = "password"
+  expiration_date = var.secret_expiration_date
+  key_vault_id    = azurerm_key_vault.main.id
+  depends_on      = [azurerm_role_assignment.vault_admin]
 }
 
 # --- Monitoring: a Log Analytics workspace to send logs and metrics to later --------------------------------

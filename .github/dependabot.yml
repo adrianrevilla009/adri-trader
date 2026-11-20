@@ -1,0 +1,41 @@
+version: 2
+
+# Dependency updates arrive as PRs and go through the same pipeline as any change. Security updates are separate
+# and immediate (enable "Dependabot security updates" in the repository settings).
+updates:
+  - package-ecosystem: maven
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "build(deps)"
+    groups:
+      spring:
+        patterns: ["org.springframework*"]
+      jackson:
+        patterns: ["com.fasterxml.jackson*"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "ci(deps)"
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "build(deps)"
+
+  - package-ecosystem: terraform
+    directory: /infra/terraform
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "build(deps)"
