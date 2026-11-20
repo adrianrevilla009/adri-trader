@@ -14,7 +14,8 @@ Qué hacer cuando algo falla. Se completa y se ensaya antes de poner dinero real
 - **Activar a mano:** `UPDATE kill_switch SET active = TRUE, reason = '<motivo>', changed_at = now() WHERE id = 1;`
 - **Desactivar (solo tras revisar la causa):** `UPDATE kill_switch SET active = FALSE, reason = NULL, changed_at = now() WHERE id = 1;`
 - Lo activa solo el bot ante: orden desconocida para el broker, diferencia de reconciliación, acceso denegado por la API.
-- Pendiente: comando de Telegram y endpoint protegido para activarlo (ver TRD §8.2), y ensayo real antes del dinero real.
+- **Endpoint protegido** (solo en 127.0.0.1, puerto 8099, token en `KILL_SWITCH_TOKEN` de 16+ caracteres; sin token no se levanta): `curl -X POST -H "Authorization: Bearer $KILL_SWITCH_TOKEN" "http://127.0.0.1:8099/killswitch/activate?reason=motivo"`; también `/killswitch/deactivate` y `GET /killswitch`.
+- Pendiente: comando de Telegram, y ensayo real antes del dinero real.
 
 ## Situaciones
 
