@@ -48,6 +48,19 @@ updates:
     commit-message:
       prefix: "build(deps)"
 
+  # Images used by docker-compose.yml (database, Prometheus, Alertmanager, Grafana, Tempo, OpenTelemetry collector).
+  # scripts/check-ops.sh pins the same Prometheus and Alertmanager digests: keep them in step when a bump is merged.
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: weekly
+    ignore:
+      # The database major is a migration, not a bump.
+      - dependency-name: "postgres"
+        update-types: ["version-update:semver-major"]
+    commit-message:
+      prefix: "build(deps)"
+
   - package-ecosystem: terraform
     directory: /infra/terraform
     schedule:

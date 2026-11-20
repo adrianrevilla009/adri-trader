@@ -120,6 +120,27 @@ jobs:
           tflint --init --config=.tflint.hcl
           tflint --config=.tflint.hcl
 
+  ops-config:
+    name: Operations config (compose, Prometheus rules, Alertmanager)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: promtool, amtool and compose validation
+        run: bash scripts/check-ops.sh
+
+  stack-smoke:
+    name: Whole stack (compose up, metrics, alerts, dashboards, traces)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Start everything and check that the pieces talk to each other
+        run: bash scripts/smoke-stack.sh
+
   secrets-scan:
     name: Secret scan (gitleaks, full history)
     runs-on: ubuntu-latest
@@ -309,7 +330,7 @@ jobs:
   ci-gate:
     name: CI gate
     if: always()
-    needs: [build-test, terraform, secrets-scan, repo-scan, dependency-review, image, sonar, pr-title]
+    needs: [build-test, terraform, ops-config, stack-smoke, secrets-scan, repo-scan, dependency-review, image, sonar, pr-title]
     runs-on: ubuntu-latest
     steps:
       - name: Every required job passed (skipped is fine only for jobs that are conditional)

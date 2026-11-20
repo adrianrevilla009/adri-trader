@@ -37,6 +37,8 @@ falla si cualquiera de los anteriores falló.
 | PR title | El título cumple Conventional Commits |
 | Build and test | `mvn verify`, resumen de cobertura, informes y SBOM de dependencias como artefactos |
 | Terraform | fmt, validate (sin backend), tflint |
+| Operations config | `scripts/check-ops.sh`: Compose, reglas de Prometheus (`promtool`) y Alertmanager (`amtool`) |
+| Whole stack | `scripts/smoke-stack.sh`: levanta todo el Compose y comprueba bot, Prometheus, alertas, Grafana y trazas |
 | Secret scan | gitleaks sobre todo el historial |
 | Config and secret scan | Trivy: Dockerfile, Terraform y secretos; cualquier hallazgo falla |
 | Dependency review | Dependencias nuevas vulnerables en el PR |

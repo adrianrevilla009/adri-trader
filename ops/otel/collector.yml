@@ -1,0 +1,30 @@
+# Receives traces from the bot over OTLP and forwards them to Tempo. The collector is where sampling, filtering or a
+# change of backend would happen without touching the application.
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  memory_limiter:
+    check_interval: 5s
+    limit_mib: 200
+  batch:
+    timeout: 5s
+
+exporters:
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls:
+      insecure: true   # private compose network
+
+service:
+  telemetry:
+    metrics:
+      level: none
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlp/tempo]

@@ -19,12 +19,24 @@ import java.util.function.Supplier;
 public final class StatusServer {
     private final HttpServer server;
     private final Supplier<Snapshot> snapshots;
+    private final Supplier<String> scrape;
     private final ObjectMapper json = new ObjectMapper().registerModule(new JavaTimeModule())
             .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
     public StatusServer(Supplier<Snapshot> snapshots, int port) throws IOException {
+        this(snapshots, port, "127.0.0.1", null);
+    }
+
+    /**
+     * @param bindAddress loopback by default; inside a container it is 0.0.0.0 so Prometheus on the private compose
+     *     network can scrape, and the port is never published to the host
+     * @param scrape when set, /metrics returns this (the Micrometer registry) instead of the snapshot-only text
+     */
+    public StatusServer(Supplier<Snapshot> snapshots, int port, String bindAddress, Supplier<String> scrape)
+            throws IOException {
         this.snapshots = snapshots;
-        this.server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), port), 0);
+        this.scrape = scrape;
+        this.server = HttpServer.create(new InetSocketAddress(InetAddress.getByName(bindAddress), port), 0);
         server.createContext("/", this::handle);
     }
 
@@ -45,6 +57,10 @@ public final class StatusServer {
             String path = ex.getRequestURI().getPath();
             if (!ex.getRequestMethod().equals("GET") || !(path.equals("/status") || path.equals("/metrics"))) {
                 reply(ex, 404, "text/plain", "not found");
+                return;
+            }
+            if (path.equals("/metrics") && scrape != null) {
+                reply(ex, 200, "text/plain; version=0.0.4; charset=utf-8", scrape.get());
                 return;
             }
             Snapshot s = snapshots.get();
