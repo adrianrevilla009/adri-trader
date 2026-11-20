@@ -30,9 +30,10 @@ Qué hacer cuando algo falla. Se completa y se ensaya antes de poner dinero real
 | Datos de la ingesta con errores críticos | Alerta `Critical data issues`; filas abiertas en `data_quality_issue` | No decidir con datos dudosos. Revisar la fuente, corregir o excluir el día, marcar la incidencia como resuelta |
 | El bot deja de reportar 24 h | Latido externo (pendiente de montar) | Entrar al servidor, revisar logs y `docker compose ps` |
 
-## Copias de seguridad (pendiente de implementar)
+## Copias de seguridad
 
-- Copia diaria de PostgreSQL (`pg_dump`) a otro disco o máquina.
+- `scripts/backup.sh [carpeta] [n]` hace un `pg_dump` comprimido, verifica que se pueda leer y conserva los últimos n (14). Programarlo a diario (cron 15 3 * * *) y copiar la carpeta a otro disco o máquina.
+- `scripts/restore-check.sh <dump>` lo restaura en una base temporal y muestra el número de filas de las tablas clave.
 - **Restauración probada** antes del dinero real: restaurar en una base vacía y comprobar que el libro de operaciones cuadra con eToro.
 - Objetivo de recuperación: 24 horas (resiliencia tier 3).
 
