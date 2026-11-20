@@ -57,6 +57,8 @@ Maven multimódulo. Las dependencias van siempre hacia `trading-core`; los módu
 | Kill switch | siempre (en BD) | Frena todo el trading; endpoint en 127.0.0.1 con token (`KILL_SWITCH_TOKEN`, 16+ caracteres) |
 | Telegram | `TELEGRAM_BOT_TOKEN` y `TELEGRAM_CHAT_ID` | Alertas, y comandos `/kill` y `/status` solo desde el chat configurado. Sin token, las alertas van al log |
 | Bucle diario de trading (`TradingDayJob`) | Código y tests listos; **sin programar** | Por agente y día: sincroniza y reconcilia, lee datos, decide, el `RiskManager` juzga, envía, registra. El día se reclama de forma atómica (`trading_day`): repetirlo o lanzarlo en paralelo no duplica órdenes, y un día que quedó a medias no se reintenta solo. Se conectará al broker de la demo de eToro; con el simulado en memoria no se programa porque tras un reinicio la reconciliación vería una diferencia |
+| Watchdog | siempre (cada 30 min) | Vigila lo que no genera eventos: datos obsoletos (más de 5 días), día de trading atascado o fallido, órdenes de resultado desconocido más de un día, kill switch activo más de un día, incidencias de datos. Avisa una vez al aparecer y otra al resolverse (sin spam) |
+| Página de estado | `trading.monitoring.port` (8098; negativo la desactiva) | Solo lectura, solo en 127.0.0.1: `/status` (JSON) y `/metrics` (formato Prometheus, listo para Grafana o Azure Monitor). Sin importes ni secretos |
 | Backtest por consola | `BacktestMain` | Con CSV por ISIN aplica los criterios de la fase 2 y escribe `summary.md` |
 
 Copias de seguridad: `scripts/backup.sh` y `scripts/restore-check.sh` (ver [runbook](docs/runbook.md)).

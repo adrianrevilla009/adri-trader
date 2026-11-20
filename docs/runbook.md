@@ -30,6 +30,13 @@ Qué hacer cuando algo falla. Se completa y se ensaya antes de poner dinero real
 | Datos de la ingesta con errores críticos | Alerta `Critical data issues`; filas abiertas en `data_quality_issue` | No decidir con datos dudosos. Revisar la fuente, corregir o excluir el día, marcar la incidencia como resuelta |
 | El bot deja de reportar 24 h | Latido externo (pendiente de montar) | Entrar al servidor, revisar logs y `docker compose ps` |
 
+## Monitorización y alertas
+
+- Las alertas salen por Telegram (o al log si no hay token) con niveles INFO, WARNING y CRITICAL.
+- El watchdog (cada 30 min) avisa de: datos obsoletos, día de trading atascado o fallido, órdenes de resultado desconocido, kill switch activo más de 24 h e incidencias de datos. Cada problema avisa una vez y luego envía "Resolved".
+- Estado de un vistazo, desde la propia máquina: `curl http://127.0.0.1:8098/status` y `/metrics`.
+- Un día "atascado" (STARTED sin terminar) **no se reintenta solo**: puede haber órdenes enviadas. Comprobar en eToro y en la tabla `trade_order`, y después corregir la fila de `trading_day` a mano.
+
 ## Copias de seguridad
 
 - `scripts/backup.sh [carpeta] [n]` hace un `pg_dump` comprimido, verifica que se pueda leer y conserva los últimos n (14). Programarlo a diario (cron 15 3 * * *) y copiar la carpeta a otro disco o máquina.

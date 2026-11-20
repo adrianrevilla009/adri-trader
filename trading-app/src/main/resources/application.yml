@@ -46,3 +46,7 @@ trading:
     report-dir: reports/arena
     # First day the agents trade (yyyy-MM-dd). Earlier data is only history; without it the replay would retire agents for past crashes.
     start-date: ${ARENA_START_DATE:}
+  monitoring:
+    # Read-only status page (loopback only): /status and /metrics. Negative port disables it.
+    port: 8098
+    watchdog-enabled: true
