@@ -39,3 +39,17 @@ Benchmark (comprar y mantener MSCI World): CAGR 10,41 %, Sharpe 0,68, caída má
 
 Ninguna familia supera al benchmark en el 70 % de las ventanas. Según la ADR-0014 eso significa abandonar esas familias con estos parámetros, o quedarse con un ETF global. El holdout no se ha abierto y no debe abrirse para rescatar una de ellas.
 Estos resultados incluyen costes del modelo por defecto (5 bps de spread y 2 de deslizamiento, valores propios sin contrastar con eToro).
+
+## Cargar los datos en PostgreSQL (reproducible)
+
+Variables de entorno de Spring (o `application-*.yml`) para la primera carga con Yahoo:
+
+```
+TRADING_INGESTION_ENABLED=true
+TRADING_INGESTION_SOURCE=yahoo
+TRADING_INGESTION_ISINS=IE00B4L5Y983,IE00B5BMR087,IE00B4K48X80,IE00BKM4GZ66
+TRADING_INGESTION_YAHOO_TICKERS=IE00B4L5Y983=EUNL.DE,IE00B5BMR087=SXR8.DE,IE00B4K48X80=EUNK.DE,IE00BKM4GZ66=IS3N.DE
+TRADING_INGESTION_RUN_ON_STARTUP=true
+```
+
+`YahooBarSource` solo hace peticiones GET. La carga es idempotente (upsert), guarda el dato en bruto y el limpio por separado y registra las incidencias de calidad.

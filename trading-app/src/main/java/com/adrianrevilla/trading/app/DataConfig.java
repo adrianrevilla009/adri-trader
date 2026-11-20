@@ -42,11 +42,28 @@ public class DataConfig {
     @Bean
     @ConditionalOnProperty(name = "trading.ingestion.enabled", havingValue = "true")
     ScheduledIngestion scheduledIngestion(IngestionService service, Alerter alerter,
-            @Value("${trading.ingestion.csv-dir}") String csvDir,
-            @Value("${trading.ingestion.isins}") List<String> isins) {
-        var job = new DailyIngestionJob(service, new CsvDirectoryBarSource("csv", Path.of(csvDir)),
-                isins.stream().map(Isin::new).toList(), "XETRA", alerter, 2000);
-        return new ScheduledIngestion(job);
+            @Value("${trading.ingestion.source:csv}") String sourceName,
+            @Value("${trading.ingestion.csv-dir:}") String csvDir,
+            @Value("${trading.ingestion.yahoo-base-url:https://query1.finance.yahoo.com}") String yahooUrl,
+            @Value("${trading.ingestion.yahoo-tickers:}") List<String> yahooTickers,
+            @Value("${trading.ingestion.from-year:2010}") int fromYear,
+            @Value("${trading.ingestion.run-on-startup:false}") boolean runOnStartup,
+            @Value("${trading.ingestion.isins}") List<String> isins, java.time.Clock clock) {
+        com.adrianrevilla.trading.data.BarSource source;
+        if (sourceName.equals("yahoo")) {
+            // entries look like IE00B4L5Y983=EUNL.DE
+            java.util.Map<Isin, String> tickers = new java.util.HashMap<>();
+            yahooTickers.stream().filter(e -> !e.isBlank()).forEach(e -> {
+                String[] kv = e.split("=", 2);
+                tickers.put(new Isin(kv[0].trim()), kv[1].trim());
+            });
+            source = new com.adrianrevilla.trading.data.YahooBarSource(yahooUrl, tickers, fromYear,
+                    java.time.LocalDate.now(clock));
+        } else {
+            source = new CsvDirectoryBarSource("csv", Path.of(csvDir));
+        }
+        var job = new DailyIngestionJob(service, source, isins.stream().map(Isin::new).toList(), "XETRA", alerter, 2000);
+        return new ScheduledIngestion(job, runOnStartup);
     }
 
     @Bean
@@ -82,9 +99,19 @@ public class DataConfig {
 
     public static class ScheduledIngestion {
         private final DailyIngestionJob job;
+        private final boolean runOnStartup;
 
-        ScheduledIngestion(DailyIngestionJob job) {
+        ScheduledIngestion(DailyIngestionJob job, boolean runOnStartup) {
             this.job = job;
+            this.runOnStartup = runOnStartup;
+        }
+
+        /** One-off backfill: set trading.ingestion.run-on-startup=true for the first run. */
+        @org.springframework.context.event.EventListener(org.springframework.boot.context.event.ApplicationReadyEvent.class)
+        public void onReady() {
+            if (runOnStartup) {
+                job.run();
+            }
         }
 
         /** After the Xetra close (17:30 CET), Monday to Friday. */
