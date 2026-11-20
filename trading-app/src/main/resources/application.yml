@@ -18,6 +18,17 @@ management:
         include: health
   server:
     address: 127.0.0.1
+  metrics:
+    tags:
+      application: etf-trading-bot
+  tracing:
+    # Off unless TRACING_ENABLED=true (the compose stack turns it on and points it at the OTel collector).
+    enabled: ${TRACING_ENABLED:false}
+    sampling:
+      probability: 1.0   # a handful of jobs per day: keep every trace
+  otlp:
+    tracing:
+      endpoint: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:http://localhost:4318/v1/traces}
 
 trading:
   # Risk limits live in configuration, not code. Changing the starting values requires an ADR (ADR-0016).
@@ -49,4 +60,8 @@ trading:
   monitoring:
     # Read-only status page (loopback only): /status and /metrics. Negative port disables it.
     port: 8098
+    # Loopback by default. The container sets 0.0.0.0 and never publishes the port, so only the private compose network sees it.
+    bind-address: ${MONITORING_BIND_ADDRESS:127.0.0.1}
+    # File the backup job touches after each verified dump; its age becomes trading_backup_age_seconds. Empty: not exported.
+    backup-marker: ${BACKUP_MARKER:}
     watchdog-enabled: true

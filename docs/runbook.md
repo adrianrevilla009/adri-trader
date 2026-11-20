@@ -28,17 +28,18 @@ Qué hacer cuando algo falla. Se completa y se ensaya antes de poner dinero real
 | Orden desconocida para el broker | Alerta `unknown to the broker; not resending` | Mirar en eToro si existe. Si no existe, marcarla `CANCELLED` a mano con una nota. Si existe, enlazarla en `trade_order.broker_order_id` |
 | Un agente supera el 15 % de caída | Alerta `Agent ... shut down`; estado `RETIRED` | No se reactiva sin revisión humana. Decidir si se liquida la posición |
 | Datos de la ingesta con errores críticos | Alerta `Critical data issues`; filas abiertas en `data_quality_issue` | No decidir con datos dudosos. Revisar la fuente, corregir o excluir el día, marcar la incidencia como resuelta |
-| El bot deja de reportar 24 h | Latido externo (pendiente de montar) | Entrar al servidor, revisar logs y `docker compose ps` |
+| El bot deja de reportar 24 h | Latido externo (`HEARTBEAT_URL`; ver observability.md) | Entrar al servidor, revisar logs y `docker compose ps` |
 
 ## Monitorización y alertas
 
 - Las alertas salen por Telegram (o al log si no hay token) con niveles INFO, WARNING y CRITICAL.
 - El watchdog (cada 30 min) avisa de: datos obsoletos, día de trading atascado o fallido, órdenes de resultado desconocido, kill switch activo más de 24 h e incidencias de datos. Cada problema avisa una vez y luego envía "Resolved".
-- Estado de un vistazo, desde la propia máquina: `curl http://127.0.0.1:8098/status` y `/metrics`.
+- Estado de un vistazo: el dashboard de Grafana (http://127.0.0.1:3000) o, con Compose, `docker compose exec app wget -qO- http://127.0.0.1:8098/status`. Métricas, alertas y trazas: [observability.md](observability.md).
 - Un día "atascado" (STARTED sin terminar) **no se reintenta solo**: puede haber órdenes enviadas. Comprobar en eToro y en la tabla `trade_order`, y después corregir la fila de `trading_day` a mano.
 
 ## Copias de seguridad
 
+- Con Compose el servicio `backup` lo hace solo cada noche (03:15 UTC, últimas 14, volumen `backups`) y la alerta `BackupMissing` salta si pasan 30 h sin una copia verificada. **Copiar el volumen fuera de la máquina sigue pendiente.**
 - `scripts/backup.sh [carpeta] [n]` hace un `pg_dump` comprimido, verifica que se pueda leer y conserva los últimos n (14). Programarlo a diario (cron 15 3 * * *) y copiar la carpeta a otro disco o máquina.
 - `scripts/restore-check.sh <dump>` lo restaura en una base temporal y muestra el número de filas de las tablas clave.
 - **Restauración probada** antes del dinero real: restaurar en una base vacía y comprobar que el libro de operaciones cuadra con eToro.

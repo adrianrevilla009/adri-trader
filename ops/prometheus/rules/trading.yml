@@ -1,0 +1,149 @@
+# Alert rules. `severity: critical` pages immediately; `warning` is for looking at during the day.
+# The bot's own watchdog (Telegram) covers some of the same conditions from the inside; these rules matter most for what
+# the bot cannot see about itself: it being down, its database unreachable, backups silently failing.
+groups:
+  - name: liveness
+    rules:
+      - alert: Watchdog
+        # Always firing. Alertmanager sends it to HEARTBEAT_URL (an external dead-man's-switch service) when set, so a
+        # dead VM or a dead Alertmanager is noticed from outside.
+        expr: vector(1)
+        labels: {severity: none}
+        annotations: {summary: "Heartbeat: the alerting pipeline is alive"}
+
+      - alert: BotDown
+        expr: up{job="trading-bot"} == 0
+        for: 5m
+        labels: {severity: critical}
+        annotations:
+          summary: "The bot is not answering"
+          description: "Prometheus cannot scrape the bot for 5 minutes: it is down, restarting in a loop or hung."
+
+      - alert: BotRestartedRecently
+        expr: (time() - process_start_time_seconds{job="trading-bot"}) < 300
+        for: 0m
+        labels: {severity: warning}
+        annotations:
+          summary: "The bot restarted in the last 5 minutes"
+
+      - alert: DatabaseUnreachableFromBot
+        expr: trading_metrics_refresh_age_seconds > 300
+        for: 5m
+        labels: {severity: critical}
+        annotations:
+          summary: "The bot cannot read its database"
+          description: "The business metrics have not refreshed for {{ $value | humanizeDuration }}."
+
+      - alert: MetricsRefreshFailing
+        expr: increase(trading_metrics_refresh_failures_total[15m]) > 3
+        labels: {severity: warning}
+        annotations: {summary: "Reading the business metrics keeps failing"}
+
+  - name: trading-safety
+    rules:
+      - alert: KillSwitchActive
+        expr: trading_kill_switch_active == 1
+        for: 1m
+        labels: {severity: critical}
+        annotations:
+          summary: "Kill switch is ON: no orders are sent"
+          description: "Deactivate it only after finding out why it was activated (docs/runbook.md)."
+
+      - alert: TradingDayStuck
+        expr: trading_days_stuck > 0
+        labels: {severity: critical}
+        annotations:
+          summary: "A trading day started and never finished"
+          description: "It is never retried automatically (it could duplicate orders). Reconcile with the broker first."
+
+      - alert: TradingDayFailed
+        expr: trading_days_failed_3d > 0
+        labels: {severity: critical}
+        annotations: {summary: "A trading day failed in the last 3 days"}
+
+      - alert: OrderOutcomeUnknown
+        expr: trading_unknown_orders_stale > 0
+        labels: {severity: critical}
+        annotations:
+          summary: "An order has an unknown outcome for more than a day"
+          description: "The broker may or may not have executed it. Check the broker before anything else."
+
+      - alert: OrdersRejected
+        expr: sum(delta(trading_orders{state="REJECTED"}[1d])) > 0
+        labels: {severity: warning}
+        annotations: {summary: "The broker rejected orders in the last day"}
+
+  - name: money
+    rules:
+      - alert: AgentDrawdownWarning
+        expr: trading_agent_drawdown_ratio > 0.10 and trading_agent_drawdown_ratio <= 0.15
+        for: 30m
+        labels: {severity: warning}
+        annotations:
+          summary: "Agent {{ $labels.agent }} is {{ $value | humanizePercentage }} below its peak"
+      - alert: AgentDrawdownLimit
+        # 0.15 is trading.risk.agent-max-drawdown (ADR-0016): the agent is retired at this level.
+        expr: trading_agent_drawdown_ratio > 0.15
+        for: 10m
+        labels: {severity: critical}
+        annotations:
+          summary: "Agent {{ $labels.agent }} passed the drawdown limit ({{ $value | humanizePercentage }})"
+      - alert: AgentEquityDroppedInADay
+        expr: trading_agent_equity_eur / (trading_agent_equity_eur offset 1d) < 0.95
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          summary: "Agent {{ $labels.agent }} lost more than 5 % of its equity in a day"
+      - alert: NegativeCash
+        expr: trading_cash_eur < 0
+        for: 5m
+        labels: {severity: critical}
+        annotations:
+          summary: "Agent {{ $labels.agent }} has negative cash: an accounting error or an unreconciled fill"
+
+  - name: pipeline
+    rules:
+      - alert: MarketDataStale
+        # 4 days covers a weekend plus one exchange holiday.
+        expr: trading_data_age_days > 4
+        for: 1h
+        labels: {severity: warning}
+        annotations: {summary: "The newest market data is {{ $value }} days old"}
+      - alert: NoMarketData
+        expr: trading_data_age_days < 0
+        for: 6h
+        labels: {severity: warning}
+        annotations: {summary: "There is no market data at all"}
+      - alert: CriticalDataIssues
+        expr: trading_data_issues_critical_30d > 0
+        labels: {severity: warning}
+        annotations: {summary: "Critical data-quality issues in the last 30 days"}
+      - alert: ArenaNotRunning
+        expr: trading_arena_age_days > 4
+        for: 1h
+        labels: {severity: warning}
+        annotations: {summary: "The arena has not recorded a day for {{ $value }} days"}
+      - alert: BackupMissing
+        # the backup job touches a marker after each verified dump; nightly, so 30 h means at least one night was missed
+        expr: trading_backup_age_seconds > 30 * 3600
+        for: 10m
+        labels: {severity: critical}
+        annotations:
+          summary: "No verified database backup for {{ $value | humanizeDuration }}"
+
+  - name: runtime
+    rules:
+      - alert: JvmHeapHigh
+        expr: sum(jvm_memory_used_bytes{area="heap"}) / sum(jvm_memory_max_bytes{area="heap"}) > 0.9
+        for: 10m
+        labels: {severity: warning}
+        annotations: {summary: "The bot's heap is over 90 % for 10 minutes"}
+      - alert: DatabasePoolWaiting
+        expr: hikaricp_connections_pending > 0
+        for: 5m
+        labels: {severity: warning}
+        annotations: {summary: "Threads are waiting for a database connection"}
+      - alert: ScheduledJobFailing
+        expr: increase(tasks_scheduled_execution_seconds_count{outcome="ERROR"}[1h]) > 0
+        labels: {severity: warning}
+        annotations: {summary: "A scheduled job ended with an error ({{ $labels.code_function }})"}

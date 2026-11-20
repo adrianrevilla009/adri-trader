@@ -12,6 +12,7 @@ Bot de trading de ETFs UCITS de acumulación en EUR (Xetra) para eToro. Java 21,
 | [docs/PRD.md](docs/PRD.md) | Qué y por qué, fases y criterios de salida |
 | [docs/TRD.md](docs/TRD.md) | Cómo: arquitectura técnica |
 | [docs/adr/](docs/adr/README.md) | 24 decisiones de arquitectura |
+| [docs/observability.md](docs/observability.md) | Despliegue con Compose, métricas, dashboard, alertas y trazas |
 | [docs/runbook.md](docs/runbook.md) | Operación: kill switch, incidencias, copias de seguridad |
 | [docs/fase0-verificacion-etoro.md](docs/fase0-verificacion-etoro.md) | 13 puntos de la API de eToro **sin verificar** |
 | [docs/resultados-fase2-preliminar.md](docs/resultados-fase2-preliminar.md) | Primer backtest con datos reales |
@@ -19,12 +20,16 @@ Bot de trading de ETFs UCITS de acumulación en EUR (Xetra) para eToro. Java 21,
 ## Arranque
 
 ```bash
-cp .env.example .env      # secretos locales, nunca en git
-make up                   # PostgreSQL (docker) + app; la primera vez descarga el histórico de Yahoo
-make down                 # para la base; los datos se conservan en el volumen pgdata
+make init                 # crea .env con contraseñas aleatorias (una vez; nunca lo sobrescribe)
+make up                   # TODO: PostgreSQL, bot, copias nocturnas, Prometheus, Alertmanager, Grafana, Tempo, OpenTelemetry
+make up-core              # solo base de datos, bot y copias
+make down                 # para todo; los datos se conservan en los volúmenes
 make reset                # BORRA los datos
+make smoke                # levanta una copia desechable y comprueba que todo funciona junto (~3 min)
 make test                 # mvn verify (los tests de integración usan Docker/Testcontainers)
 ```
+
+Grafana en http://127.0.0.1:3000 (usuario `admin`, contraseña `GRAFANA_PASSWORD` de `.env`). Es lo único publicado en el equipo. Detalle, métricas, alertas y qué no está verificado: [docs/observability.md](docs/observability.md).
 
 Los datos de mercado **no se guardan en git**: viven en PostgreSQL. El universo de desarrollo (`config/dev-universe.env`) tiene ISIN **sin verificar** contra eToro; `config/universe.yml` queda vacío hasta verificarlos.
 
@@ -58,10 +63,10 @@ Maven multimódulo. Las dependencias van siempre hacia `trading-core`; los módu
 | Telegram | `TELEGRAM_BOT_TOKEN` y `TELEGRAM_CHAT_ID` | Alertas, y comandos `/kill` y `/status` solo desde el chat configurado. Sin token, las alertas van al log |
 | Bucle diario de trading (`TradingDayJob`) | Código y tests listos; **sin programar** | Por agente y día: sincroniza y reconcilia, lee datos, decide, el `RiskManager` juzga, envía, registra. El día se reclama de forma atómica (`trading_day`): repetirlo o lanzarlo en paralelo no duplica órdenes, y un día que quedó a medias no se reintenta solo. Se conectará al broker de la demo de eToro; con el simulado en memoria no se programa porque tras un reinicio la reconciliación vería una diferencia |
 | Watchdog | siempre (cada 30 min) | Vigila lo que no genera eventos: datos obsoletos (más de 5 días), día de trading atascado o fallido, órdenes de resultado desconocido más de un día, kill switch activo más de un día, incidencias de datos. Avisa una vez al aparecer y otra al resolverse (sin spam) |
-| Página de estado | `trading.monitoring.port` (8098; negativo la desactiva) | Solo lectura, solo en 127.0.0.1: `/status` (JSON) y `/metrics` (formato Prometheus, listo para Grafana o Azure Monitor). Sin importes ni secretos |
+| Página de estado | `trading.monitoring.port` (8098; negativo la desactiva) | Solo lectura. Fuera de Docker, solo en 127.0.0.1; en Compose escucha en la red privada (puerto no publicado). `/status` (JSON, sin importes) y `/metrics` (Prometheus: estado operativo y flujo de dinero por agente) |
 | Backtest por consola | `BacktestMain` | Con CSV por ISIN aplica los criterios de la fase 2 y escribe `summary.md` |
 
-Copias de seguridad: `scripts/backup.sh` y `scripts/restore-check.sh` (ver [runbook](docs/runbook.md)).
+Copias de seguridad: las hace solas el servicio `backup` de Compose cada noche y su antigüedad es una métrica con alerta; `scripts/backup.sh` y `scripts/restore-check.sh` sirven para hacerlas y probarlas a mano (ver [runbook](docs/runbook.md)).
 
 ## Estado por fase
 
