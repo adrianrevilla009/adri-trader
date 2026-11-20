@@ -70,8 +70,11 @@ git tag v0.1.0 && git push origin v0.1.0        # lanza el release
 | Entorno | Para qué | Protección en GitHub |
 | --- | --- | --- |
 | `dev` | Desarrollo y pruebas | Ninguna |
-| `paper` | Demo de eToro (órdenes simuladas por eToro) | Solo desde `main` o etiquetas |
-| `live` | Dinero real | **Aprobación manual obligatoria** y solo desde etiquetas `v*` |
+| `paper` | Demo de eToro (órdenes simuladas por eToro) | El workflow de promoción solo puede ejecutarse desde `main` |
+| `live` | Dinero real | **Aprobación manual obligatoria** (tuya) y solo desde `main` |
+
+Que la imagen provenga de una etiqueta `v*` no lo da la rama sino la verificación de firma: el certificado de cosign
+incluye el workflow y la etiqueta que la construyó, y la promoción exige que coincidan.
 
 Los secretos de cada entorno (claves de eToro, Telegram, token del kill switch) se guardan como *environment secrets* de
 GitHub, no en el repositorio ni en la imagen. Cada entorno usa su perfil de Spring (`dev`, `paper`, `live`).
@@ -104,5 +107,5 @@ molesten se desactivan en Sonar con una razón escrita, no con cambios en el có
 
 - El workflow de release y el de promoción: sintaxis validada con actionlint, pero **nunca ejecutados**. La primera etiqueta
   puede necesitar ajustes (permisos del registro, formato de atestaciones).
-- Los entornos y la protección de rama se configuran por API de GitHub; revisa en *Settings* que quedaron como se espera.
+- Los entornos y la protección de rama se configuran por API de GitHub; revisa en *Settings* que quedaron como se espera. **No se ha podido probar un push directo a `main` para ver el rechazo** (la herramienta lo bloqueó); la protección está comprobada solo por lo que devuelve la API.
 - SonarQube: sin ejecutar hasta que lo actives.
