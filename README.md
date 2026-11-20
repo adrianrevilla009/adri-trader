@@ -75,6 +75,10 @@ Copias de seguridad: `scripts/backup.sh` y `scripts/restore-check.sh` (ver [runb
 | 5 Dinero real | 3 meses sin incidentes | No procede aún |
 | 6 Capas avanzadas | Mejora neta demostrada | Abierta |
 
+## Infraestructura (opcional)
+
+`infra/terraform/` es un esqueleto para practicar Azure (PostgreSQL gestionado, Key Vault, Log Analytics). Pasa `terraform validate` pero **nunca se ha aplicado**. El bot no lo necesita: corre en local con `make up`. Ver [infra/terraform/README.md](infra/terraform/README.md).
+
 ## Convención de trabajo
 
 Ramas cortas, PR con CI en verde y squash. **Cada PR que cambie el comportamiento actualiza este README** (módulos, estado, configuración).
