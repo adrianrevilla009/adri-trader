@@ -1,0 +1,31 @@
+rules:
+  - id: sql-migration-drop-or-rename-column
+    languages: [generic]
+    severity: WARNING
+    message: "DROP/RENAME COLUMN en una migracion rompe el rolling deploy. Usar expand/contract (skill schema-migrations)."
+    paths:
+      include:
+        - "**/db/migration/*.sql"
+      # Adapted for this project: V1-V6 are already applied and Flyway refuses to start if a byte of an applied migration
+      # changes (checksum). The rule applies to every new migration, V7 and later.
+      exclude:
+        - "**/db/migration/V[1-6]__*.sql"
+    pattern-regex: '(?i)ALTER\s+TABLE\s+\S+\s+(DROP\s+COLUMN|RENAME\s+COLUMN)'
+    metadata:
+      skill: schema-migrations
+      note: "Probada con semgrep 1.184.0 (tests/semgrep)."
+  - id: sql-migration-index-without-concurrently
+    languages: [generic]
+    severity: WARNING
+    message: "CREATE INDEX sin CONCURRENTLY bloquea escrituras en PostgreSQL (skill schema-migrations)."
+    paths:
+      include:
+        - "**/db/migration/*.sql"
+      # Adapted for this project: V1-V6 are already applied and Flyway refuses to start if a byte of an applied migration
+      # changes (checksum). The rule applies to every new migration, V7 and later.
+      exclude:
+        - "**/db/migration/V[1-6]__*.sql"
+    pattern-regex: '(?i)CREATE\s+(UNIQUE\s+)?INDEX\s+(?!CONCURRENTLY)'
+    metadata:
+      skill: schema-migrations
+      note: "Excepcion: tablas recien creadas en la misma migracion. Probada con semgrep 1.184.0 (tests/semgrep)."

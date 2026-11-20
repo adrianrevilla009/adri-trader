@@ -1,0 +1,12 @@
+rules:
+  - id: spring-autowired-field-injection
+    languages: [java]
+    severity: ERROR
+    message: "Inyección por campo con @Autowired. Usar inyección por constructor (skill dependency-injection-rules)."
+    patterns:
+      - pattern: |
+          @Autowired
+          $T $F;
+    metadata:
+      skill: dependency-injection-rules
+      note: "Probada con semgrep 1.184.0 (tests/semgrep)."

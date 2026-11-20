@@ -10,4 +10,37 @@
   <artifactId>trading-core</artifactId>
   <name>trading-core</name>
   <description>Domain model and interfaces: Strategy, Broker, RiskRule, MarketSnapshot</description>
+  <!-- Pure domain/application module (ADR-0025): no framework or driver may ever reach its classpath, not even transitively. -->
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>enforce-pure-domain</id>
+            <phase>validate</phase>
+            <goals><goal>enforce</goal></goals>
+            <configuration>
+              <rules>
+                <bannedDependencies>
+                  <searchTransitive>true</searchTransitive>
+                  <excludes>
+                    <exclude>org.springframework:*</exclude>
+                    <exclude>org.springframework.boot:*</exclude>
+                    <exclude>jakarta.persistence:*</exclude>
+                    <exclude>com.fasterxml.jackson.core:*</exclude>
+                    <exclude>org.postgresql:*</exclude>
+                    <exclude>org.flywaydb:*</exclude>
+                    <exclude>io.micrometer:*</exclude>
+                  </excludes>
+                  <message>This module is domain/application: frameworks and drivers belong to an adapter (ADR-0025).</message>
+                </bannedDependencies>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
 </project>

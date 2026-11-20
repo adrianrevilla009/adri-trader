@@ -22,6 +22,9 @@ public class JdbcOrderRepository implements OrderRepository {
     private static final String SELECT = """
             SELECT o.id, o.agent_id, i.isin, o.side, o.amount_eur, o.limit_price, o.state, o.note
             FROM trade_order o JOIN instrument i ON i.id = o.instrument_id""";
+    private static final String SELECT_BY_ID = SELECT + " WHERE o.id = ?";
+    private static final String SELECT_OPEN =
+            SELECT + " WHERE o.state IN ('SUBMITTED','PARTIALLY_FILLED') ORDER BY o.created_at";
 
     private final JdbcTemplate jdbc;
     private final org.springframework.transaction.support.TransactionTemplate tx;
@@ -61,12 +64,12 @@ public class JdbcOrderRepository implements OrderRepository {
 
     @Override
     public Optional<OrderRecord> find(UUID id) {
-        return jdbc.query(SELECT + " WHERE o.id = ?", (rs, i) -> record(rs), id).stream().findFirst();
+        return jdbc.query(SELECT_BY_ID, (rs, i) -> record(rs), id).stream().findFirst();
     }
 
     @Override
     public List<OrderRecord> findOpen() {
-        return jdbc.query(SELECT + " WHERE o.state IN ('SUBMITTED','PARTIALLY_FILLED') ORDER BY o.created_at",
+        return jdbc.query(SELECT_OPEN,
                 (rs, i) -> record(rs));
     }
 

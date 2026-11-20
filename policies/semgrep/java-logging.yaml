@@ -1,0 +1,38 @@
+rules:
+  - id: java-print-stack-trace
+    languages: [java]
+    severity: ERROR
+    message: "No usar printStackTrace(); registrar con el logger pasando la excepcion como ultimo argumento (skill logging-rules)."
+    pattern: $E.printStackTrace()
+    metadata:
+      skill: logging-rules
+      note: "Probada con semgrep 1.184.0 (tests/semgrep)."
+  - id: java-system-out
+    languages: [java]
+    severity: ERROR
+    message: "No usar System.out/System.err en codigo de produccion; usar SLF4J (skill logging-rules)."
+    pattern-either:
+      - pattern: System.out.$M(...)
+      - pattern: System.err.$M(...)
+    paths:
+      exclude: ["**/src/test/**"]
+    metadata:
+      skill: logging-rules
+      note: "Probada con semgrep 1.184.0 (tests/semgrep)."
+  - id: java-log-string-concat
+    languages: [java]
+    severity: WARNING
+    message: "No concatenar en mensajes de log; usar placeholders {} (skill logging-rules)."
+    # Adapted for this project: the factory pattern matched ANY method whose first argument is a concatenation (an alerter,
+    # a collection, a kill switch...). Here it only matches a logger variable called with a log level.
+    patterns:
+      - pattern: $LOG.$LEVEL("..." + $X, ...)
+      - metavariable-regex:
+          metavariable: $LEVEL
+          regex: ^(trace|debug|info|warn|error)$
+      - metavariable-regex:
+          metavariable: $LOG
+          regex: ^(?i:log|logger)$
+    metadata:
+      skill: logging-rules
+      note: "Adaptada a este proyecto; probada con java-logging.java (semgrep --test)."

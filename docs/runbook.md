@@ -37,6 +37,32 @@ Qué hacer cuando algo falla. Se completa y se ensaya antes de poner dinero real
 - Estado de un vistazo: el dashboard de Grafana (http://127.0.0.1:3000) o, con Compose, `docker compose exec app wget -qO- http://127.0.0.1:8098/status`. Métricas, alertas y trazas: [observability.md](observability.md).
 - Un día "atascado" (STARTED sin terminar) **no se reintenta solo**: puede haber órdenes enviadas. Comprobar en eToro y en la tabla `trade_order`, y después corregir la fila de `trading_day` a mano.
 
+## Qué hacer ante cada alerta
+
+Las alertas salen de `ops/prometheus/rules/trading.yml` y llegan por Telegram. Gravedad: **page** (te avisa ya y se repite cada hora), **ticket** (se agrupa y se repite cada 24 h; mirar durante el día) e **info** (nunca se envía). Cada una enlaza aquí.
+
+| Alerta | Gravedad | Qué significa | Qué hacer |
+| --- | --- | --- | --- |
+| `BotDown` | page | Prometheus no puede leer el bot en 5 min | `docker compose ps` y `docker compose logs app`. Si no arranca, mirar la base de datos y el último despliegue. No reiniciar a ciegas si había un día de trading a medias (ver `TradingDayStuck`) |
+| `DatabaseUnreachableFromBot` | page | El bot no puede leer su base de datos | `docker compose ps postgres`, espacio en disco, logs de PostgreSQL. Con la base caída el bot no decide ni envía |
+| `KillSwitchActive` | page | Hay un kill switch activo: no se envían órdenes | Averiguar por qué se activó (`GET /killswitch` da el motivo) y desactivarlo solo después |
+| `TradingDayStuck` | page | Un día quedó en STARTED más de una hora | **No se reintenta solo**: puede haber órdenes enviadas. Comprobar en eToro y en `trade_order`, luego corregir la fila de `trading_day` a mano |
+| `TradingDayFailed` | page | Un día terminó FAILED | Leer `trading_day.detail` y el log. Corregir la causa antes del siguiente día |
+| `OrderOutcomeUnknown` | page | Una orden lleva más de un día sin resultado conocido | Mirar en eToro si existe. Si no, marcarla `CANCELLED` con nota; si existe, enlazarla en `trade_order.broker_order_id` |
+| `AgentDrawdownLimit` | page | Un agente pasó el 15 % de caída | El gestor de riesgo lo retira (`RETIRED`). No se reactiva sin revisión; decidir si se liquida la posición |
+| `NegativeCash` | page | Un agente tiene caja negativa | Error contable o fill sin reconciliar. El libro es de solo añadir: investigar antes de corregir con un ajuste |
+| `BackupMissing` | page | Pasaron 30 h sin una copia verificada | `docker compose logs backup`; probar `scripts/backup.sh`. Revisar el apartado de copias de seguridad |
+| `AgentDrawdownWarning` | ticket | Un agente cayó entre el 10 % y el 15 % | Aviso temprano; nada que hacer aún |
+| `AgentEquityDroppedInADay` | ticket | Un agente perdió más del 5 % en un día | Comparar con el benchmark: ¿mercado, dato erróneo o fallo de la estrategia? |
+| `OrdersRejected` | ticket | El broker rechazó órdenes en el último día | Ver `trade_order.note`: id de instrumento, tamaño o sesión |
+| `MarketDataStale` / `NoMarketData` | ticket | Datos obsoletos o inexistentes | Logs de la ingesta; la fuente pudo cambiar o limitar. Los agentes no deben decidir con datos viejos |
+| `CriticalDataIssues` | ticket | Incidencias críticas de calidad de datos | Revisar `data_quality_issue`, corregir o excluir el día y marcarla resuelta |
+| `ArenaNotRunning` | ticket | La arena no registra días | Log del job de las 19:30; suele ser consecuencia de datos que faltan |
+| `MetricsRefreshFailing` | ticket | La lectura de métricas falla repetidamente | Base de datos lenta o inalcanzable; los paneles muestran valores viejos |
+| `JvmHeapHigh`, `DatabasePoolWaiting`, `ScheduledJobFailing` | ticket | Síntomas de recursos | Panel de Grafana «Runtime» y log de la aplicación |
+| `BotRestartedRecently` | info | El bot reinició hace menos de 5 min | Normal tras un despliegue; si no lo fue, mirar el log (sin memoria, el proceso sale a propósito) |
+| `Watchdog` | info | Latido siempre activo | Si el servicio externo deja de recibirlo, la máquina o Alertmanager están caídos |
+
 ## Copias de seguridad
 
 - Con Compose el servicio `backup` lo hace solo cada noche (03:15 UTC, últimas 14, volumen `backups`) y la alerta `BackupMissing` salta si pasan 30 h sin una copia verificada. **Copiar el volumen fuera de la máquina sigue pendiente.**

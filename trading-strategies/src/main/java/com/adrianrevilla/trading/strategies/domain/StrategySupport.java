@@ -22,7 +22,7 @@ final class StrategySupport {
         for (var e : state.positions().entrySet()) {
             Optional<Bar> bar = snapshot.latest(e.getKey());
             if (bar.isPresent()) {
-                BigDecimal v = e.getValue().multiply(bar.get().close());
+                BigDecimal v = e.getValue().multiply(bar.orElseThrow().close());
                 values.put(e.getKey(), v);
                 equity = equity.add(v);
             }

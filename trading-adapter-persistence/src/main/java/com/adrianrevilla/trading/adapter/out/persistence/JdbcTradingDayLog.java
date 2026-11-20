@@ -8,6 +8,10 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 /** Atomic claim of an agent day: only the first caller gets it. */
 public class JdbcTradingDayLog implements TradingDayLog {
+    private static final String CLAIM = """
+            INSERT INTO trading_day(day, agent_id, status) VALUES (?, ?, 'STARTED')
+            ON CONFLICT (day, agent_id) DO NOTHING""";
+
     private final JdbcTemplate jdbc;
 
     public JdbcTradingDayLog(DataSource dataSource) {
@@ -16,8 +20,7 @@ public class JdbcTradingDayLog implements TradingDayLog {
 
     /** @return true if this caller now owns the day; false if the day was already claimed by any earlier run */
     public boolean claim(LocalDate day, String agentId) {
-        return jdbc.update("INSERT INTO trading_day(day, agent_id, status) VALUES (?, ?, 'STARTED') "
-                + "ON CONFLICT (day, agent_id) DO NOTHING", java.sql.Date.valueOf(day), agentId) == 1;
+        return jdbc.update(CLAIM, java.sql.Date.valueOf(day), agentId) == 1;
     }
 
     public void finish(LocalDate day, String agentId, boolean ok, String detail) {

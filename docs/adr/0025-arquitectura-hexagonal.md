@@ -54,6 +54,11 @@ puertos de lectura (`MonitoringQueries`, `BusinessReadModel`) con DTO propios, s
 almacén, sin proyecciones asíncronas, sin event sourcing: no hay carga ni forma de lectura que lo justifiquen, y la guía dice
 que no es el valor por defecto.
 
+**Configuración.** La configuración propia se enlaza con `@ConfigurationProperties` sobre records inmutables (`IngestionProperties`,
+`ArenaProperties`, `TelegramProperties`, `KillSwitchProperties`, `MonitoringProperties`) con validación en el constructor compacto:
+un valor inválido impide el arranque, no rompe la primera noche. No hay `@Value` en el código (estándar `04-spring-platform`).
+Se valida a mano y no con Jakarta Validation para no añadir `hibernate-validator` al classpath del módulo de arranque.
+
 ## Excepciones a la fábrica, registradas
 
 - **Nombre `trading-app` y no `trading-boot`.** Es solo un nombre; renombrarlo afectaría al Dockerfile, a Sonar y al CI sin

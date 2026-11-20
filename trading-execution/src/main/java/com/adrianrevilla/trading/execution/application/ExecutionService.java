@@ -85,7 +85,7 @@ public final class ExecutionService {
                 halt("Order " + rec.request().internalId() + " is unknown to the broker; not resending, manual check");
                 continue;
             }
-            if (apply(rec, found.get())) {
+            if (apply(rec, found.orElseThrow())) {
                 changed++;
             }
         }

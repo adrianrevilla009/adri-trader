@@ -23,6 +23,7 @@ public final class RandomMatchedStrategy implements Strategy {
     private final List<Isin> universe;
     private final long seed;
     private final double exposure;
+    // nosemgrep: java-money-floating-point, java-money-as-double -- a probability in [0,1], not an amount of money
     private final double rebalanceProbability;
     private final int positions;
 
@@ -32,6 +33,7 @@ public final class RandomMatchedStrategy implements Strategy {
      * @param positions number of instruments held at once
      */
     public RandomMatchedStrategy(String id, List<Isin> universe, long seed, double exposure,
+            // nosemgrep: java-money-as-double -- a probability in [0,1], not an amount of money
             double rebalanceProbability, int positions) {
         this.id = id;
         this.universe = List.copyOf(universe);
@@ -48,6 +50,7 @@ public final class RandomMatchedStrategy implements Strategy {
 
     @Override
     public TargetPortfolio decide(MarketSnapshot snapshot, PortfolioState state) {
+        // nosemgrep: java-weak-crypto-algorithm -- seeded PRNG for a reproducible control strategy, not a security use
         Random rnd = new Random(seed * 1_000_003L + snapshot.asOf().toEpochDay());
         boolean first = state.positions().isEmpty() && rnd.nextDouble() < 0.5; // lets the control enter early
         if (rnd.nextDouble() >= rebalanceProbability && !first) {

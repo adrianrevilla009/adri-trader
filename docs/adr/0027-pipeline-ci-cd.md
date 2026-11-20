@@ -22,6 +22,7 @@ automáticas. El ADR-0019 fijó GitHub Actions; faltaba decidir las herramientas
   la firma. Entornos `dev`, `paper` y `live` (este último con aprobación manual y solo desde `main`).
 - **Protección de `main`:** PR obligatorio, checks en verde, rama al día, historial lineal, sin force push.
 - **Ganchos locales** sin dependencias (`make hooks`): commits convencionales, sin secretos, sin commits ni pushes a `main`.
+- **Políticas de la fábrica** ([policies/README.md](../../policies/README.md)): Semgrep (19 reglas, cualquier hallazgo falla; las excepciones llevan `nosemgrep` con motivo) y Maven Enforcer (librerías prohibidas y módulos de dominio sin frameworks).
 - **Pruebas de arquitectura** ([ADR-0025](0025-arquitectura-hexagonal.md)) dentro de `mvn verify`.
 
 ## Consecuencias

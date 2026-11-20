@@ -130,12 +130,10 @@ public final class EToroBroker implements Broker {
 
     @Override
     public void cancel(UUID internalId) throws BrokerException {
-        Optional<String> ref = refs.get(internalId);
-        if (ref.isEmpty()) {
-            throw new BrokerRejectedException("order " + internalId + " has no broker reference");
-        }
+        String ref = refs.get(internalId).orElseThrow(
+                () -> new BrokerRejectedException("order " + internalId + " has no broker reference"));
         String path = (config.mode() == EToroConfig.Mode.REAL ? config.endpoints().ordersReal()
-                : config.endpoints().ordersDemo()) + "/" + ref.get();
+                : config.endpoints().ordersDemo()) + "/" + ref;
         write("DELETE", path, null, UUID.randomUUID());
     }
 
@@ -149,7 +147,7 @@ public final class EToroBroker implements Broker {
         if (ref.isEmpty()) {
             return Optional.empty();
         }
-        Response r = read(config.endpoints().orderStatus().replace("{id}", ref.get()));
+        Response r = read(config.endpoints().orderStatus().replace("{id}", ref.orElseThrow()));
         if (r.status() == 404) {
             return Optional.empty();
         }
@@ -166,7 +164,7 @@ public final class EToroBroker implements Broker {
     }
 
     private static OrderState state(String s) throws BrokerUnavailableException {
-        return switch (s.toLowerCase()) {
+        return switch (s.toLowerCase(java.util.Locale.ROOT)) {
             case "pending", "open", "submitted" -> OrderState.SUBMITTED;
             case "partiallyexecuted", "partially_filled" -> OrderState.PARTIALLY_FILLED;
             case "executed", "filled" -> OrderState.FILLED;

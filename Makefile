@@ -1,7 +1,7 @@
 # Market data is never committed: `make up` starts the whole stack (database, bot, nightly backups, Prometheus,
 # Alertmanager, Grafana, Tempo, OpenTelemetry collector). The bot downloads the history on its first start
 # (idempotent; later starts only add new days). Everything lives in docker volumes.
-.PHONY: init up up-core down reset logs ps psql test hooks check-ops smoke
+.PHONY: init up up-core down reset logs ps psql test hooks check-ops smoke semgrep
 
 ## Create .env with generated passwords (once; never overwrites)
 init:
@@ -38,6 +38,10 @@ test:
 ## Validate the compose file and the Prometheus/Alertmanager config (the same check CI runs)
 check-ops:
 	bash scripts/check-ops.sh
+
+## Factory static policies (Semgrep) over the production code; same check as CI
+semgrep:
+	bash scripts/semgrep.sh
 
 ## Start a throwaway copy of the whole stack, check that every piece works together, remove it (about 3 minutes)
 smoke:

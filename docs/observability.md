@@ -74,8 +74,10 @@ vuelta al repositorio.
 
 ## Alertas
 
-`ops/prometheus/rules/trading.yml` (22 reglas). Las críticas llegan al instante y se repiten cada hora; las `warning` cada
-4 horas. Cuando algo se resuelve llega un mensaje `RESOLVED`. Si el bot cae, se silencian las alertas derivadas (inhibición)
+`ops/prometheus/rules/trading.yml` (22 reglas; estándar `10-observability-app` de la fábrica). Gravedad con tres valores cerrados:
+`page` (llega ya y se repite cada hora), `ticket` (agrupada, se repite cada 24 h) e `info` (nunca se envía). Todas llevan
+`summary`, `description` y `runbook_url` (apartado «Qué hacer ante cada alerta» del [runbook](runbook.md)). Cuando algo se
+resuelve llega un mensaje `RESOLVED`. Si el bot cae, se silencian las alertas derivadas (inhibición)
 para no ahogarte en ruido.
 
 Cubren lo que el bot **no puede ver de sí mismo** (caída, base de datos inalcanzable, copias que fallan en silencio) y, como
