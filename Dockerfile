@@ -8,7 +8,7 @@ COPY . .
 RUN --mount=type=cache,target=/root/.m2 mvn -B -q -DskipTests -Djacoco.skip=true -pl trading-app -am package \
     && cp trading-app/target/trading-app-*.jar /app.jar
 
-FROM eclipse-temurin:21-jre-alpine@sha256:ac05c3c42b7c2f1a52c9bd52f01041fa1958231b15ebeae7420429cbc5baf474
+FROM eclipse-temurin:25-jre-alpine@sha256:e1898fd6a11fc965a994d8ace186fd3585aeb636cf8f05f47a723fcfee0b0918
 # Unprivileged user; nothing is written outside /app/reports.
 RUN addgroup -S bot && adduser -S -G bot -h /app bot && mkdir -p /app/reports && chown -R bot:bot /app
 USER bot
