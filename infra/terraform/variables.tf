@@ -65,3 +65,27 @@ variable "secret_expiration_date" {
   type        = string
   default     = "2027-12-31T23:59:59Z"
 }
+
+variable "enable_vm" {
+  description = "Create the VM that runs docker-compose, its network and the off-machine backup storage (costs money while it exists)"
+  type        = bool
+  default     = false
+}
+
+variable "vm_size" {
+  description = "VM size. The whole stack (bot, PostgreSQL, Prometheus, Grafana, Tempo) needs about 3 GB of RAM: 4 GB is the minimum."
+  type        = string
+  default     = "Standard_B2s"
+}
+
+variable "ssh_public_key" {
+  description = "Public key allowed to log in as user deploy (cat ~/.ssh/id_ed25519.pub). Required when enable_vm = true."
+  type        = string
+  default     = ""
+}
+
+variable "repo_url" {
+  description = "Repository cloned onto the VM (public, so no credentials are needed)"
+  type        = string
+  default     = "https://github.com/adrianrevilla009/adri-trader.git"
+}

@@ -4,3 +4,7 @@ subscription_id = "00000000-0000-0000-0000-000000000000"
 my_public_ip    = "203.0.113.10"
 environment     = "dev"
 location        = "westeurope"
+
+# VM that runs the whole docker-compose stack (off by default: it costs money while it exists)
+# enable_vm      = true
+# ssh_public_key = "ssh-ed25519 AAAA... you@laptop"

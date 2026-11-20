@@ -40,3 +40,9 @@ Para apuntar la app a esa base: `DB_URL=jdbc:postgresql://<postgres_host>:5432/t
   añaden a mano cuando existan.
 - Aún no hay contenedor de la aplicación ni Container Apps: el siguiente paso natural si algún día se quiere
   desplegar en Azure.
+
+## VM para Docker Compose (opcional)
+
+`vm.tf` crea la máquina que ejecuta todo el stack, su red (SSH solo desde tu IP), una IP pública estática y una cuenta de
+almacenamiento para las copias fuera de la máquina. Está apagada por defecto (`enable_vm = false`). Detalle y pasos en
+[docs/observability.md](../../docs/observability.md#desplegar-en-un-servidor-azure-vm). **Nunca aplicada.**
