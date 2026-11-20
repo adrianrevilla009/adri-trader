@@ -58,6 +58,18 @@ public final class InMemoryOrderRepository implements OrderRepository {
     }
 
     @Override
+    public synchronized boolean recordFillUpTo(UUID orderId, BigDecimal brokerFilledTotalEur, BigDecimal averagePrice) {
+        BigDecimal delta = brokerFilledTotalEur.subtract(recordedFillAmount(orderId));
+        if (delta.signum() <= 0) {
+            return false;
+        }
+        BigDecimal qty = averagePrice != null && averagePrice.signum() > 0
+                ? delta.divide(averagePrice, java.math.MathContext.DECIMAL128) : BigDecimal.ZERO;
+        recordFill(orderId, qty, averagePrice, delta);
+        return true;
+    }
+
+    @Override
     public synchronized Map<Isin, BigDecimal> netUnits(String agentId) {
         Map<Isin, BigDecimal> net = new HashMap<>();
         for (Fill f : fills) {

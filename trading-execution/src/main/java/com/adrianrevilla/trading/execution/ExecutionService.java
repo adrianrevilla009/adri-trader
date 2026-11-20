@@ -70,7 +70,7 @@ public final class ExecutionService {
     }
 
     /** Asks the broker for every open order and brings the store up to date. Returns how many changed. */
-    public int syncOpenOrders() {
+    public synchronized int syncOpenOrders() {
         int changed = 0;
         for (OrderRepository.OrderRecord rec : orders.findOpen()) {
             Optional<BrokerOrder> found;
@@ -92,12 +92,7 @@ public final class ExecutionService {
 
     private boolean apply(OrderRepository.OrderRecord rec, BrokerOrder b) {
         boolean changed = false;
-        BigDecimal recorded = orders.recordedFillAmount(rec.request().internalId());
-        BigDecimal delta = b.filledAmountEur().subtract(recorded);
-        if (delta.signum() > 0) {
-            BigDecimal qtyDelta = b.averagePrice() != null && b.averagePrice().signum() > 0
-                    ? delta.divide(b.averagePrice(), java.math.MathContext.DECIMAL128) : BigDecimal.ZERO;
-            orders.recordFill(rec.request().internalId(), qtyDelta, b.averagePrice(), delta);
+        if (orders.recordFillUpTo(rec.request().internalId(), b.filledAmountEur(), b.averagePrice())) {
             changed = true;
         }
         if (b.state() != rec.state() && OrderStateMachine.canTransition(rec.state(), b.state())) {

@@ -28,6 +28,14 @@ public interface OrderRepository {
 
     void recordFill(UUID orderId, BigDecimal quantity, BigDecimal price, BigDecimal amountEur);
 
+    /**
+     * Atomically records the part of the broker cumulative filled amount that is not yet stored. Safe to call from
+     * several threads for the same order: the total recorded never exceeds {@code brokerFilledTotalEur}.
+     *
+     * @return true if a fill was recorded
+     */
+    boolean recordFillUpTo(UUID orderId, BigDecimal brokerFilledTotalEur, BigDecimal averagePrice);
+
     /** Net units per instrument for an agent, derived from the fills (buys positive, sells negative). */
     Map<Isin, BigDecimal> netUnits(String agentId);
 
