@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Conventional Commits: <type>(<optional scope>)[!]: <description>
+# The same convention is enforced on the PR title in CI, because squash merges use it as the commit message.
+set -euo pipefail
+
+msg_file="$1"
+first_line="$(head -n 1 "$msg_file")"
+
+# Merge, revert and fixup commits created by git itself are allowed.
+if [[ "$first_line" =~ ^(Merge|Revert|fixup!|squash!) ]]; then
+  exit 0
+fi
+
+pattern='^(feat|fix|docs|test|ci|chore|refactor|perf|build|revert)(\([a-z0-9._/-]+\))?!?: .{3,}$'
+if ! [[ "$first_line" =~ $pattern ]]; then
+  echo "Commit message rejected: it must follow Conventional Commits." >&2
+  echo "  <type>(<scope>)?: <description>   types: feat fix docs test ci chore refactor perf build revert" >&2
+  echo "  got: $first_line" >&2
+  exit 1
+fi
+
+if [ "${#first_line}" -gt 100 ]; then
+  echo "Commit message rejected: first line is longer than 100 characters." >&2
+  exit 1
+fi

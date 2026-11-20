@@ -5,7 +5,7 @@ export
 
 JAR := trading-app/target/trading-app-0.1.0-SNAPSHOT.jar
 
-.PHONY: up down reset test build
+.PHONY: up down reset test build hooks
 
 build:
 	mvn -q -pl trading-app -am package -DskipTests
@@ -26,3 +26,8 @@ reset:
 
 test:
 	mvn verify
+
+## Enable the local git hooks (conventional commits, secret checks, no direct pushes to main)
+hooks:
+	git config core.hooksPath .githooks
+	@echo "Hooks enabled"

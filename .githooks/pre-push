@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Before pushing: never to main directly, and the code must compile. Tests run in CI (and with `make test`).
+set -euo pipefail
+
+while read -r _local_ref _local_sha remote_ref _remote_sha; do
+  if [ "$remote_ref" = "refs/heads/main" ] && [ "${ALLOW_MAIN_PUSH:-}" != "1" ]; then
+    echo "Pushing directly to main is not allowed: open a PR." >&2
+    exit 1
+  fi
+done
+
+if [ "${SKIP_COMPILE_CHECK:-}" != "1" ] && command -v mvn >/dev/null 2>&1; then
+  echo "pre-push: compiling (set SKIP_COMPILE_CHECK=1 to skip)..."
+  mvn -q -B -DskipTests -Djacoco.skip=true compile >/dev/null || {
+    echo "The code does not compile. Fix it before pushing." >&2
+    exit 1
+  }
+fi
