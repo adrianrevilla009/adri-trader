@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# Fast local checks before a commit. The full verification is the CI pipeline; these catch the expensive mistakes early.
+set -euo pipefail
+
+branch="$(git rev-parse --abbrev-ref HEAD)"
+if [ "$branch" = "main" ] && [ "${ALLOW_MAIN_COMMIT:-}" != "1" ]; then
+  echo "Direct commits to main are not allowed: work on a branch and open a PR." >&2
+  exit 1
+fi
+
+staged="$(git diff --cached --name-only --diff-filter=ACM)"
+[ -z "$staged" ] && exit 0
+
+# 1) Files that must never be committed.
+forbidden='(^|/)\.env$|(^|/)\.env\.[^e].*|\.tfstate(\..*)?$|(^|/)terraform\.tfvars$|\.pem$|\.p12$|\.pfx$|id_rsa$|id_ed25519$'
+if echo "$staged" | grep -E "$forbidden" | grep -vE '\.env\.example$' >/dev/null; then
+  echo "Refusing to commit a file that usually holds secrets:" >&2
+  echo "$staged" | grep -E "$forbidden" | grep -vE '\.env\.example$' >&2
+  exit 1
+fi
+
+# 2) Obvious secrets in the added lines (the real scan is gitleaks in CI, over the full history).
+added="$(git diff --cached -U0 --no-color | grep -E '^\+[^+]' || true)"
+patterns='AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{30,}|-----BEGIN (RSA |EC |OPENSSH |)PRIVATE KEY-----|xox[baprs]-[A-Za-z0-9-]{10,}|[0-9]{8,10}:AA[A-Za-z0-9_-]{33}'
+if echo "$added" | grep -E "$patterns" | grep -vE '0123456789abcdef-secret' >/dev/null; then
+  echo "A line you are committing looks like a secret (key, token or private key). Remove it." >&2
+  exit 1
+fi
+
+# 3) Terraform formatting, when terraform is installed.
+if echo "$staged" | grep -qE '\.tf$' && command -v terraform >/dev/null 2>&1; then
+  terraform fmt -check -recursive infra/terraform >/dev/null || {
+    echo "Terraform files are not formatted: run 'terraform fmt -recursive infra/terraform'." >&2
+    exit 1
+  }
+fi
+
+# 4) Whitespace errors and conflict markers.
+git diff --cached --check || {
+  echo "Whitespace errors or conflict markers in the staged changes." >&2
+  exit 1
+}

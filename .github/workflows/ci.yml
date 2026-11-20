@@ -7,6 +7,7 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  workflow_call: # the release workflow runs the whole pipeline on the tagged commit
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}

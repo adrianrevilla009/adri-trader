@@ -1,0 +1,13 @@
+# Code owners are requested for review automatically. Paths that move money, hold secrets or change the pipeline
+# itself are listed explicitly so a change there is never anonymous.
+*                                   @adrianrevilla009
+
+/trading-execution/                 @adrianrevilla009
+/trading-risk/                      @adrianrevilla009
+/trading-broker-etoro/              @adrianrevilla009
+/trading-tax/                       @adrianrevilla009
+/trading-app/src/main/resources/db/ @adrianrevilla009
+/.github/                           @adrianrevilla009
+/infra/                             @adrianrevilla009
+/Dockerfile                         @adrianrevilla009
+/docs/adr/                          @adrianrevilla009

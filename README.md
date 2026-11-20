@@ -75,6 +75,10 @@ Copias de seguridad: `scripts/backup.sh` y `scripts/restore-check.sh` (ver [runb
 | 5 Dinero real | 3 meses sin incidentes | No procede aún |
 | 6 Capas avanzadas | Mejora neta demostrada | Abierta |
 
+## CI/CD y seguridad
+
+Cada PR pasa por tests, escaneo de secretos y vulnerabilidades, CodeQL, comprobaciones de Terraform y construcción de la imagen con prueba de arranque; los releases se publican en ghcr.io firmados (cosign), con procedencia y SBOM, y se promueven a `dev`, `paper` o `live` verificando la firma. Detalle, herramientas y lo que aún no se ha ejecutado en [docs/ci-cd.md](docs/ci-cd.md). Hooks locales: `make hooks`. Política de seguridad: [SECURITY.md](SECURITY.md).
+
 ## Infraestructura (opcional)
 
 `infra/terraform/` es un esqueleto para practicar Azure (PostgreSQL gestionado, Key Vault, Log Analytics). Pasa `terraform validate` pero **nunca se ha aplicado**. El bot no lo necesita: corre en local con `make up`. Ver [infra/terraform/README.md](infra/terraform/README.md).

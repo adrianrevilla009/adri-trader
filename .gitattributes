@@ -1,0 +1,14 @@
+# Scripts and build files must keep LF line endings on every machine (CRLF breaks bash and Docker on Linux).
+* text=auto
+*.sh text eol=lf
+.githooks/* text eol=lf
+scripts/* text eol=lf
+Dockerfile text eol=lf
+Makefile text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.tf text eol=lf
+*.sql text eol=lf
+
+*.jar binary
+*.png binary

@@ -1,0 +1,82 @@
+name: Promote
+
+# Promotes a published, signed image to an environment (dev, paper, live). The environment's protection rules apply:
+# "live" waits for a human approval and can only run from a release tag. The job refuses any image whose signature
+# or provenance does not verify. There is no deployment target yet (the bot runs on your machine), so this records
+# the approved deployment in GitHub and prints the exact image to run.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version to promote, without the v (for example 0.1.0)'
+        required: true
+        type: string
+      environment:
+        description: 'Target environment'
+        required: true
+        type: choice
+        options: [dev, paper, live]
+
+permissions:
+  contents: read
+
+jobs:
+  promote:
+    name: Promote ${{ inputs.version }} to ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    permissions:
+      contents: read
+      packages: read
+      id-token: write
+      attestations: read
+    steps:
+      - name: Validate the version format
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Version must look like 1.2.3"; exit 1; }
+      - name: Image reference
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}:${VERSION}" >> "$GITHUB_ENV"
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
+        with:
+          cosign-release: v3.1.4
+      - name: Resolve the digest (promote by digest, never by a movable tag)
+        run: |
+          DIGEST=$(docker buildx imagetools inspect "$IMAGE" --format '{{json .Manifest.Digest}}' | tr -d '"')
+          [[ "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "Could not resolve $IMAGE"; exit 1; }
+          echo "DIGEST=$DIGEST" >> "$GITHUB_ENV"
+          echo "IMAGE_BASE=${IMAGE%%:*}" >> "$GITHUB_ENV"
+      - name: Verify the signature (must come from the release workflow of this repository)
+        run: |
+          cosign verify "${IMAGE_BASE}@${DIGEST}" \
+            --certificate-identity-regexp "^https://github.com/${GITHUB_REPOSITORY}/\.github/workflows/release\.yml@refs/tags/v.*$" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com
+      - name: Verify provenance and SBOM attestations
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh attestation verify "oci://${IMAGE_BASE}@${DIGEST}" --repo "$GITHUB_REPOSITORY"
+          gh attestation verify "oci://${IMAGE_BASE}@${DIGEST}" --repo "$GITHUB_REPOSITORY" \
+            --predicate-type https://spdx.dev/Document/v2.3
+      - name: Approved
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+        run: |
+          {
+            echo "### ${ENVIRONMENT}: image approved"
+            echo ""
+            echo "Signature, provenance and SBOM verified. Run exactly:"
+            echo ""
+            echo "\`${IMAGE_BASE}@${DIGEST}\`"
+            echo ""
+            echo "Secrets for this environment come from the environment's own secrets, never from the image."
+          } >> "$GITHUB_STEP_SUMMARY"
