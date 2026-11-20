@@ -44,3 +44,5 @@ trading:
     enabled: false
     capital: 100
     report-dir: reports/arena
+    # First day the agents trade (yyyy-MM-dd). Earlier data is only history; without it the replay would retire agents for past crashes.
+    start-date: ${ARENA_START_DATE:}

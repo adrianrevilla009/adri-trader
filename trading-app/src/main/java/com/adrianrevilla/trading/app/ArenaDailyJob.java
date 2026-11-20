@@ -41,9 +41,17 @@ public class ArenaDailyJob {
     private final JdbcArenaJournal journal;
     private final Alerter alerter;
     private final Path reportDir;
+    private final LocalDate startDate;
 
     public ArenaDailyJob(BarRepository bars, List<Isin> universe, Isin benchmark, String exchange, BigDecimal capital,
             JdbcArenaJournal journal, Alerter alerter, Path reportDir) {
+        this(bars, universe, benchmark, exchange, capital, journal, alerter, reportDir, null);
+    }
+
+    /** @param startDate first day the agents trade; earlier data is only history for indicators. Null = all days. */
+    public ArenaDailyJob(BarRepository bars, List<Isin> universe, Isin benchmark, String exchange, BigDecimal capital,
+            JdbcArenaJournal journal, Alerter alerter, Path reportDir, LocalDate startDate) {
+        this.startDate = startDate;
         this.bars = bars;
         this.universe = universe;
         this.benchmark = benchmark;
@@ -76,6 +84,9 @@ public class ArenaDailyJob {
             } else {
                 days.retainAll(own);
             }
+        }
+        if (days != null && startDate != null) {
+            days.removeIf(d -> d.isBefore(startDate));
         }
         if (days == null || days.isEmpty()) {
             return Optional.empty();

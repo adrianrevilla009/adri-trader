@@ -80,6 +80,18 @@ class ArenaDailyJobTest {
     }
 
     @Test
+    void startDateLimitsWhereTheAgentsTrade(@TempDir Path tmp) {
+        ingest(A, 0.0004);
+        ingest(B, 0.0002);
+        var journal = new JdbcArenaJournal(ds);
+        var job = new ArenaDailyJob(repo, List.of(A, B), A, "XETRA", new BigDecimal("100"), journal, alerter, tmp,
+                LocalDate.parse("2025-12-30"));
+        job.run();
+        // a single trading day: nothing has been bought yet, so the equity is still the starting capital
+        assertThat(journal.equity("benchmark").get(LocalDate.parse("2025-12-30"))).isEqualByComparingTo("100");
+    }
+
+    @Test
     void missingDataSkipsTheDayAndAlerts(@TempDir Path tmp) {
         ingest(A, 0.0004); // B has no data
         var job = new ArenaDailyJob(repo, List.of(A, B), A, "XETRA", new BigDecimal("100"), new JdbcArenaJournal(ds),

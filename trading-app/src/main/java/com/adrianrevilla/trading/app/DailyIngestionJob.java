@@ -22,9 +22,22 @@ public class DailyIngestionJob {
     private final String exchange;
     private final Alerter alerter;
     private final long baseBackoffMillis;
+    private final java.time.Clock clock;
+    private final Integer recentDays;
 
     public DailyIngestionJob(IngestionService service, BarSource source, List<Isin> universe, String exchange,
             Alerter alerter, long baseBackoffMillis) {
+        this(service, source, universe, exchange, alerter, baseBackoffMillis, java.time.Clock.systemUTC(), null);
+    }
+
+    /**
+     * @param recentDays when set, only critical issues dated within that many days alert as CRITICAL; older ones stay in
+     *     the database and in the INFO summary, so a known historic hole does not alert every night
+     */
+    public DailyIngestionJob(IngestionService service, BarSource source, List<Isin> universe, String exchange,
+            Alerter alerter, long baseBackoffMillis, java.time.Clock clock, Integer recentDays) {
+        this.clock = clock;
+        this.recentDays = recentDays;
         this.service = service;
         this.source = source;
         this.universe = universe;
@@ -39,12 +52,16 @@ public class DailyIngestionJob {
         for (Isin isin : universe) {
             try {
                 var report = withRetry(isin);
-                if (report.hasCritical()) {
-                    alerter.alert(Alerter.Level.CRITICAL, "Critical data issues for " + isin.value() + ": "
-                            + report.issues().stream().filter(i -> i.severity()
-                                    == com.adrianrevilla.trading.data.QualityIssue.Severity.CRITICAL).count());
+                var critical = report.issues().stream()
+                        .filter(i -> i.severity() == com.adrianrevilla.trading.data.QualityIssue.Severity.CRITICAL).toList();
+                long recent = critical.stream().filter(this::isRecent).count();
+                if (recent > 0) {
+                    alerter.alert(Alerter.Level.CRITICAL, "Critical data issues for " + isin.value() + ": " + recent);
                 } else {
                     ok++;
+                    if (!critical.isEmpty()) {
+                        LOG.info("{}: {} historic critical issues stored, none recent", isin.value(), critical.size());
+                    }
                 }
             } catch (Exception e) {
                 LOG.error("Ingestion failed for {}", isin.value(), e);
@@ -53,6 +70,10 @@ public class DailyIngestionJob {
         }
         alerter.alert(Alerter.Level.INFO, "Ingestion finished: " + ok + "/" + universe.size() + " clean");
         return ok;
+    }
+
+    private boolean isRecent(com.adrianrevilla.trading.data.QualityIssue i) {
+        return recentDays == null || !i.date().isBefore(java.time.LocalDate.now(clock).minusDays(recentDays));
     }
 
     private IngestionService.Report withRetry(Isin isin) throws Exception {
