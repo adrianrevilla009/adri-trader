@@ -1,0 +1,11 @@
+# Secret scanning rules. Default ruleset plus an allowlist of exact placeholder values (not whole paths), so a real
+# secret in the same files would still be reported.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Known placeholders: test fixture token and documentation example"
+regexes = [
+  '''0123456789abcdef-secret''',
+  '''una-clave-de-16-o-mas-caracteres''',
+]

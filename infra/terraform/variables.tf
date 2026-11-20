@@ -59,3 +59,9 @@ variable "my_public_ip" {
   description = "Your public IP, the only address allowed to reach the database (curl ifconfig.me)"
   type        = string
 }
+
+variable "secret_expiration_date" {
+  description = "Expiry (RFC 3339) of the secrets stored in the Key Vault; rotate before it"
+  type        = string
+  default     = "2027-12-31T23:59:59Z"
+}

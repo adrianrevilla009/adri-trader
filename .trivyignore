@@ -1,0 +1,4 @@
+# Accepted vulnerabilities. Every entry needs: the CVE, why it does not apply or cannot be fixed yet, who accepted
+# it, and an expiry date after which the scan fails again. Empty is the goal.
+#
+# Format:   CVE-XXXX-NNNN exp:2026-12-31   # reason, accepted by <name>, <date>
