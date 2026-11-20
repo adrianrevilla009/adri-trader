@@ -1,0 +1,6 @@
+# Copy to terraform.tfvars (git-ignored). Do NOT put the database password here: use
+#   export TF_VAR_db_admin_password='...at least 16 characters...'
+subscription_id = "00000000-0000-0000-0000-000000000000"
+my_public_ip    = "203.0.113.10"
+environment     = "dev"
+location        = "westeurope"

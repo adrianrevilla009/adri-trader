@@ -1,0 +1,6 @@
+# Terraform: state and variable files may contain secrets
+.terraform/
+*.tfstate
+*.tfstate.*
+terraform.tfvars
+crash.log
