@@ -147,6 +147,7 @@ jobs:
       - name: Report to code scanning (SARIF, never fails)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
+          version: v0.76.2
           scan-type: fs
           scanners: misconfig,secret
           skip-files: pom.xml,**/pom.xml
@@ -157,6 +158,7 @@ jobs:
       - name: Gate (table in the log, fails on any finding)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
+          version: v0.76.2
           scan-type: fs
           scanners: misconfig,secret
           skip-files: pom.xml,**/pom.xml
@@ -222,6 +224,7 @@ jobs:
       - name: Vulnerability scan (fails on fixable HIGH or CRITICAL)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
+          version: v0.76.2
           image-ref: etf-trading-bot:ci
           scanners: vuln
           severity: HIGH,CRITICAL
