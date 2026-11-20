@@ -27,11 +27,11 @@
     <java.version>21</java.version>
     <maven.compiler.release>21</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <spring-boot.version>3.5.14</spring-boot.version>
+    <spring-boot.version>4.1.2</spring-boot.version>
     <!-- Security overrides: versions with fixes newer than what Spring Boot manages. Remove when Boot catches up. -->
     <jackson-bom.version>2.21.7</jackson-bom.version>
     <micrometer-bom.version>1.15.12</micrometer-bom.version>
-    <spring-framework-bom.version>6.2.19</spring-framework-bom.version>
+    <spring-framework-bom.version>7.0.10</spring-framework-bom.version>
     <postgresql.override.version>42.7.12</postgresql.override.version>
   </properties>
 
