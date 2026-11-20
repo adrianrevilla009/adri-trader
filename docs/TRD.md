@@ -42,23 +42,31 @@ Principios:
 | Tiempo | `java.time`, `Clock` inyectable, UTC en BD | 0013 |
 | CI | GitHub Actions | 0019 |
 
-## 3. Módulos Maven
+## 3. Módulos Maven y capas
+
+La arquitectura es hexagonal ([ADR-0025](adr/0025-arquitectura-hexagonal.md)). Dentro de cada contexto hay `domain`, `application` y `adapter`; los módulos de adaptador aíslan cada tecnología.
 
 | Módulo | Responsabilidad | Depende de |
 | --- | --- | --- |
-| `trading-core` | Dominio e interfaces: `Strategy`, `Broker`, `RiskRule`, `MarketSnapshot`, `PortfolioState`, `TargetPortfolio` | — |
-| `trading-data` | Ingesta, calendario, calidad, (v2) tipos de cambio | core |
-| `trading-backtest` | Motor de simulación, modelo de costes, validación, informes | core, data |
+| `trading-core` | Núcleo compartido: dominio (`Strategy`, `Broker`, `RiskRule`, `MarketSnapshot`, `PortfolioState`, `TargetPortfolio`, `KillSwitch`) y puertos `Alerter`, `InstrumentCatalog` | — |
+| `trading-data` | Calendario, calidad, limpieza, ingesta; puertos `BarRepository`, `BarSource` | core |
+| `trading-backtest` | Motor de simulación, costes, validación; puerto de informes | core, broker-sim |
 | `trading-strategies` | Las cuatro estrategias y sus parámetros | core (+ ta4j) |
-| `trading-risk` | Reglas de riesgo y kill switch | core |
-| `trading-execution` | Máquina de estados de órdenes, `ExecutionService`, reconciliación, dry-run | core |
-| `trading-broker-sim` | `SimulatedBroker` y `FaultInjectingBroker` (tests de fallos) | core |
-| `trading-broker-etoro` | `EToroBroker` (REST) | core |
-| `trading-arena` | Orquestador, agentes, controles, métricas | core, backtest, risk, broker-sim |
-| `trading-tax` | `TaxLedger`, exportaciones | core |
-| `trading-app` | Spring Boot, jobs, alertas, informe HTML | todos |
+| `trading-risk` | Reglas de riesgo | core |
+| `trading-execution` | Máquina de estados de órdenes, `ExecutionService`, reconciliación, `RealTradingGate`; puertos `OrderRepository`, `BrokerRefStore` | core |
+| `trading-broker-sim` | `SimulatedBroker` y `FaultInjectingBroker` (dominio: modelo del mercado) | core |
+| `trading-arena` | Agentes, orquestador, controles, métricas; puerto de informes | core, backtest, risk, strategies, broker-sim |
+| `trading-tax` | `TaxLedger`, exportaciones; puerto `TaxTradeSource` | core |
+| `trading-application` | Casos de uso y servicios entre contextos; puertos de entrada y de salida (escritura y lectura) | todos los contextos |
+| `trading-adapter-persistence` | JDBC y migraciones Flyway | contextos, application |
+| `trading-adapter-marketdata` | Yahoo y CSV | core, data |
+| `trading-adapter-notification` | Telegram | core, application |
+| `trading-adapter-web` | Página de estado y kill switch | core, application |
+| `trading-adapter-metrics` | Micrometer | application |
+| `trading-broker-etoro` | `EToroBroker` (REST) | core, execution |
+| `trading-app` | Arranque Spring: configuración y disparadores | todos |
 
-Regla de dependencias: `core` no depende de nadie; `strategies` no depende de brokers; ningún módulo depende de `app`. `trading-broker-ib` queda como adaptador futuro opcional.
+Reglas (las comprueba ArchUnit en `mvn verify`): `domain` y `application` no usan frameworks ni infraestructura; `adapter → application → domain`; los adaptadores no dependen unos de otros; `core` no depende de nadie; `strategies` no depende de brókers; ningún módulo depende de `app`. `trading-broker-ib` queda como adaptador futuro opcional.
 
 ## 4. Contratos clave
 

@@ -37,21 +37,35 @@ Perfiles: `dev` (por defecto), `paper`, `live` (`SPRING_PROFILES_ACTIVE`). Secre
 
 ## Módulos
 
-Maven multimódulo. Las dependencias van siempre hacia `trading-core`; los módulos de dominio no conocen la base de datos ni a eToro.
+Maven multimódulo con arquitectura **hexagonal** ([ADR-0025](docs/adr/0025-arquitectura-hexagonal.md)): cada contexto tiene `domain`, `application` y `adapter`, y las dependencias apuntan siempre hacia el dominio (`adapter → application → domain`). Lo hacen cumplir pruebas ArchUnit que fallan `mvn verify`.
 
-| Módulo | Qué hace | Estado |
+```
+ adapters de entrada        application (casos de uso)        adapters de salida
+ scheduler · HTTP · CLI ──► puertos de entrada ──► servicios ──► puertos de salida ──► JDBC · Yahoo · eToro · Telegram · Micrometer
+ Telegram                                  │
+                                           ▼
+                                        domain  (Strategy, RiskManager, Agent, TaxLedger, órdenes...)
+```
+
+| Módulo | Qué contiene | Estado |
 | --- | --- | --- |
-| `trading-core` | Tipos compartidos y contratos: `Strategy`, `Broker` y sus excepciones, `OrderRequest`, `OrderPlanner`, `RiskRule`, `KillSwitch`, `Alerter`, `RateLimiter` | Hecho |
-| `trading-data` | Calendario Xetra, lectura de CSV, validación de calidad, limpieza, hash del dataset, repositorio de velas, ingesta idempotente, fuentes `CsvDirectoryBarSource` y `YahooBarSource` | Hecho. Calendario Xetra **sin verificar** contra el oficial |
+| `trading-core` | Núcleo compartido. `domain`: `Isin`, `Bar`, `Strategy`, `TargetPortfolio`, `Broker` y sus excepciones, `KillSwitch`, `OrderPlanner`, `RiskRule`. `application`: `RateLimiter` y los puertos `Alerter` e `InstrumentCatalog` | Hecho |
+| `trading-data` | Calendario Xetra, validación de calidad, limpieza, hash del dataset (`domain`); `IngestionService` y los puertos `BarRepository` y `BarSource` (`application`) | Hecho. Calendario Xetra **sin verificar** contra el calendario oficial |
 | `trading-strategies` | Buy and hold, tendencia, momentum con rotación, volatilidad objetivo, swing RSI, agente aleatorio de control | Hecho |
-| `trading-backtest` | Motor (decide al cierre t, ejecuta en la apertura t+1), costes, métricas netas, walk-forward, holdout, sensibilidad ±20 %, informes | Hecho |
+| `trading-backtest` | Motor (decide al cierre t, ejecuta en la apertura t+1), costes, métricas netas, walk-forward, holdout, sensibilidad ±20 %; informes por un puerto | Hecho |
 | `trading-risk` | `RiskManager` con la última palabra: lista blanca, peso máximo, exposición, pérdida diaria, drawdown por agente, liquidez, precio absurdo, duplicados, horario | Hecho |
-| `trading-execution` | Máquina de estados de órdenes, persistencia antes de enviar, reconciliación que detiene el trading, `DryRunBroker`, `RealTradingGate` (dinero real por agente, cerrado por defecto) | Hecho. Sin conectar a un broker real |
-| `trading-broker-sim` | `SimulatedBroker` (comparte lógica con el backtest) e inyector de fallos para tests | Hecho |
-| `trading-broker-etoro` | Cliente de la API de eToro con límite de ritmo | Escrito **con suposiciones** sin verificar; probado solo contra un servidor local falso |
-| `trading-arena` | Varios agentes compitiendo con capital virtual, controles, comparación vivo-vs-backtest, criterios de finalista, informe HTML | Hecho. Sin meses de datos reales |
+| `trading-execution` | Máquina de estados de órdenes, persistencia antes de enviar, reconciliación que detiene el trading, `RealTradingGate` (dinero real por agente, cerrado por defecto); puertos `OrderRepository` y `BrokerRefStore`; `DryRunBroker` | Hecho. Sin conectar a un broker real |
+| `trading-arena` | Agentes con capital virtual (`Agent` es la raíz de su agregado), controles, vivo-vs-backtest, criterios de finalista; informe HTML por un puerto | Hecho. Sin meses de datos reales |
 | `trading-tax` | Libro fiscal FIFO, regla de los dos meses, CSV anual, alerta del modelo 720 | Hecho. **No es asesoramiento**; sin compensación de pérdidas entre años; requiere revisión de un experto |
-| `trading-app` | Aplicación Spring: configuración, migraciones Flyway, repositorios JDBC, jobs diarios, alertas, kill switch, CLI de backtest | Hecho |
+| `trading-broker-sim` | `SimulatedBroker` (modelo del mercado, es dominio) e inyector de fallos para tests | Hecho |
+| `trading-application` | Casos de uso (`RunTradingDay`, `RunArenaDay`, `IngestMarketData`, `CheckSystemHealth`, `RunBacktest`), sus servicios, el watchdog y los puertos de salida de escritura y de lectura (CQRS de nivel 1) | Hecho |
+| `trading-adapter-persistence` | PostgreSQL por JDBC (todas las implementaciones de puertos de persistencia y lectura) y las migraciones Flyway | Hecho |
+| `trading-adapter-marketdata` | Fuentes de datos: Yahoo (solo GET) y CSV | Hecho |
+| `trading-adapter-notification` | Alertas y comandos de Telegram, alertador de log | Hecho |
+| `trading-adapter-web` | Página de estado `/status` y `/metrics`, endpoint del kill switch | Hecho |
+| `trading-adapter-metrics` | Métricas de negocio con Micrometer | Hecho |
+| `trading-broker-etoro` | Adaptador de la API de eToro con límite de ritmo | Escrito **con suposiciones** sin verificar; probado solo contra un servidor local falso |
+| `trading-app` | Módulo de arranque: configuración Spring, disparadores `@Scheduled` y CLI de backtest. Sin lógica de negocio | Hecho |
 
 ## Qué corre dentro de la aplicación
 
@@ -61,7 +75,7 @@ Maven multimódulo. Las dependencias van siempre hacia `trading-core`; los módu
 | Job del arena | `trading.arena.enabled=true` | 19:30: repite el histórico, guarda el último día, envía resumen y escribe `reports/arena/arena-AAAA-MM-DD.html`. Usa `trading.arena.start-date` |
 | Kill switch | siempre (en BD) | Frena todo el trading; endpoint en 127.0.0.1 con token (`KILL_SWITCH_TOKEN`, 16+ caracteres) |
 | Telegram | `TELEGRAM_BOT_TOKEN` y `TELEGRAM_CHAT_ID` | Alertas, y comandos `/kill` y `/status` solo desde el chat configurado. Sin token, las alertas van al log |
-| Bucle diario de trading (`TradingDayJob`) | Código y tests listos; **sin programar** | Por agente y día: sincroniza y reconcilia, lee datos, decide, el `RiskManager` juzga, envía, registra. El día se reclama de forma atómica (`trading_day`): repetirlo o lanzarlo en paralelo no duplica órdenes, y un día que quedó a medias no se reintenta solo. Se conectará al broker de la demo de eToro; con el simulado en memoria no se programa porque tras un reinicio la reconciliación vería una diferencia |
+| Bucle diario de trading (`TradingDayService`, caso de uso `RunTradingDay`) | Código y tests listos; **sin programar** | Por agente y día: sincroniza y reconcilia, lee datos, decide, el `RiskManager` juzga, envía, registra. El día se reclama de forma atómica (`trading_day`): repetirlo o lanzarlo en paralelo no duplica órdenes, y un día que quedó a medias no se reintenta solo. Se conectará al broker de la demo de eToro; con el simulado en memoria no se programa porque tras un reinicio la reconciliación vería una diferencia |
 | Watchdog | siempre (cada 30 min) | Vigila lo que no genera eventos: datos obsoletos (más de 5 días), día de trading atascado o fallido, órdenes de resultado desconocido más de un día, kill switch activo más de un día, incidencias de datos. Avisa una vez al aparecer y otra al resolverse (sin spam) |
 | Página de estado | `trading.monitoring.port` (8098; negativo la desactiva) | Solo lectura. Fuera de Docker, solo en 127.0.0.1; en Compose escucha en la red privada (puerto no publicado). `/status` (JSON, sin importes) y `/metrics` (Prometheus: estado operativo y flujo de dinero por agente) |
 | Backtest por consola | `BacktestMain` | Con CSV por ISIN aplica los criterios de la fase 2 y escribe `summary.md` |
@@ -94,4 +108,4 @@ Ramas cortas, PR con CI en verde y squash. **Cada PR que cambie el comportamient
 
 ## Pruebas
 
-`make test` ejecuta todo (JaCoCo genera `target/site/jacoco` por módulo). Además de los tests unitarios hay: concurrencia e integridad sobre PostgreSQL real (`PersistenceIntegrityTest`), bucle diario de extremo a extremo (`TradingDayJobTest`), robustez de estrategias con datos raros y servidores falsos para eToro, Yahoo y Telegram. Estos tests encontraron y corrigieron errores reales (fills duplicados bajo concurrencia, estados de orden contradictorios, ingesta paralela).
+`make test` ejecuta todo (JaCoCo genera `target/site/jacoco` por módulo). Además de los tests unitarios hay: concurrencia e integridad sobre PostgreSQL real (`PersistenceIntegrityTest`), bucle diario de extremo a extremo (`TradingDayServiceTest`), robustez de estrategias con datos raros y servidores falsos para eToro, Yahoo y Telegram, y **pruebas de arquitectura** (ArchUnit: dominio sin frameworks, capas hacia dentro, adaptadores independientes, sin ciclos), cada una con una prueba negativa que demuestra que falla si se viola. Estos tests encontraron y corrigieron errores reales (fills duplicados bajo concurrencia, estados de orden contradictorios, ingesta paralela).

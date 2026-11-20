@@ -1,6 +1,6 @@
 # Registro de decisiones (ADR)
 
-Cada fila de «Decisiones cerradas» del [brief](../brief.md) tiene su ADR (0001–0020); las 0021–0024 recogen decisiones de arquitectura del brief. Un cambio exige un ADR nuevo: las aceptadas no se reescriben, se marcan como sustituidas.
+Cada fila de «Decisiones cerradas» del [brief](../brief.md) tiene su ADR (0001–0020); las 0021–0024 recogen decisiones de arquitectura del brief; las 0025–0027 son posteriores (arquitectura hexagonal, despliegue y observabilidad, pipeline de CI/CD). Un cambio exige un ADR nuevo: las aceptadas no se reescriben, se marcan como sustituidas.
 
 | ADR | Título |
 | --- | --- |
@@ -28,3 +28,6 @@ Cada fila de «Decisiones cerradas» del [brief](../brief.md) tiene su ADR (0001
 | [0022](0022-simulador-propio-arena.md) | La arena usa un simulador propio, no solo el demo del broker |
 | [0023](0023-solo-postgresql.md) | Persistencia: solo PostgreSQL |
 | [0024](0024-ta4j-motor-propio.md) | ta4j para señales y motor propio para la cartera |
+| [0025](0025-arquitectura-hexagonal.md) | Arquitectura hexagonal en multimódulo, DDD táctico y CQRS de nivel 1 |
+| [0026](0026-despliegue-compose-observabilidad.md) | Despliegue con Docker Compose, observabilidad y VM en Azure |
+| [0027](0027-pipeline-ci-cd.md) | Pipeline de CI/CD y seguridad de la cadena de suministro |

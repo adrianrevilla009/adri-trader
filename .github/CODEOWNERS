@@ -6,7 +6,9 @@
 /trading-risk/                      @adrianrevilla009
 /trading-broker-etoro/              @adrianrevilla009
 /trading-tax/                       @adrianrevilla009
-/trading-app/src/main/resources/db/ @adrianrevilla009
+/trading-adapter-persistence/            @adrianrevilla009   # SQL and the Flyway migrations
+/trading-application/                    @adrianrevilla009   # use cases and ports
+/trading-app/src/test/java/com/adrianrevilla/trading/architecture/ @adrianrevilla009   # the architecture rules
 /.github/                           @adrianrevilla009
 /infra/                             @adrianrevilla009
 /Dockerfile                         @adrianrevilla009

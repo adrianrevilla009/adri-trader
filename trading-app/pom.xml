@@ -9,30 +9,34 @@
   </parent>
   <artifactId>trading-app</artifactId>
   <name>trading-app</name>
-  <description>Spring Boot application, scheduled jobs, alerts</description>
+  <description>Boot module (composition root): Spring configuration, scheduling triggers and the CLI. No business logic</description>
 
   <dependencies>
-    <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-core</artifactId><version>${project.version}</version></dependency>
-    <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-data</artifactId><version>${project.version}</version></dependency>
-    <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-backtest</artifactId><version>${project.version}</version></dependency>
-    <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-strategies</artifactId><version>${project.version}</version></dependency>
-    <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-risk</artifactId><version>${project.version}</version></dependency>
-    <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-execution</artifactId><version>${project.version}</version></dependency>
-    <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-broker-sim</artifactId><version>${project.version}</version></dependency>
-    <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-broker-etoro</artifactId><version>${project.version}</version></dependency>
-    <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-arena</artifactId><version>${project.version}</version></dependency>
-    <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-tax</artifactId><version>${project.version}</version></dependency>
+    <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-core</artifactId></dependency>
+    <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-data</artifactId></dependency>
+    <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-backtest</artifactId></dependency>
+    <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-strategies</artifactId></dependency>
+    <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-risk</artifactId></dependency>
+    <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-execution</artifactId></dependency>
+    <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-broker-sim</artifactId></dependency>
+    <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-broker-etoro</artifactId></dependency>
+    <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-arena</artifactId></dependency>
+    <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-tax</artifactId></dependency>
+    <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-application</artifactId></dependency>
+    <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-adapter-persistence</artifactId></dependency>
+    <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-adapter-marketdata</artifactId></dependency>
+    <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-adapter-notification</artifactId></dependency>
+    <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-adapter-web</artifactId></dependency>
+    <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-adapter-metrics</artifactId></dependency>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-jdbc</artifactId></dependency>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-actuator</artifactId></dependency>
     <dependency><groupId>io.micrometer</groupId><artifactId>micrometer-registry-prometheus</artifactId></dependency>
     <!-- Traces of the scheduled jobs, exported over OTLP to the collector only when tracing is switched on -->
     <dependency><groupId>io.micrometer</groupId><artifactId>micrometer-tracing-bridge-otel</artifactId></dependency>
     <dependency><groupId>io.opentelemetry</groupId><artifactId>opentelemetry-exporter-otlp</artifactId></dependency>
-    <dependency><groupId>org.flywaydb</groupId><artifactId>flyway-core</artifactId></dependency>
-    <dependency><groupId>org.flywaydb</groupId><artifactId>flyway-database-postgresql</artifactId></dependency>
-    <dependency><groupId>org.postgresql</groupId><artifactId>postgresql</artifactId><scope>runtime</scope></dependency>
 
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-test</artifactId><scope>test</scope></dependency>
+    <dependency><groupId>com.tngtech.archunit</groupId><artifactId>archunit-junit5</artifactId><scope>test</scope></dependency>
     <dependency><groupId>org.testcontainers</groupId><artifactId>postgresql</artifactId><scope>test</scope></dependency>
     <dependency><groupId>org.testcontainers</groupId><artifactId>junit-jupiter</artifactId><scope>test</scope></dependency>
   </dependencies>
