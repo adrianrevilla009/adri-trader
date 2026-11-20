@@ -12,6 +12,8 @@ promoción está escrito y validado en sintaxis, pero aún no se ha ejecutado de
 | Convención de commits | Conventional Commits: título del PR (CI) y hook `commit-msg` | Los squash merge usan el título del PR como mensaje |
 | Secretos | gitleaks (historial completo) + Trivy (secretos) + secret scanning de GitHub con push protection + hook local | El allowlist de gitleaks es por valor exacto, no por carpeta |
 | Vulnerabilidades de dependencias | Trivy sobre la **imagen** (lo que de verdad se ejecuta) + dependency-review en PR + Dependabot | Falla ante HIGH o CRITICAL con corrección disponible |
+| Reglas de build | Maven Enforcer: librerías prohibidas (Lombok, log4j 1, commons-collections 3, joda-time), versiones de plugin fijadas, y **Spring, Jackson, JDBC y Micrometer prohibidos en los módulos de dominio y aplicación** (también de forma transitiva) | Política de la fábrica `maven-enforcer` |
+| Arquitectura | ArchUnit dentro de `mvn verify` ([ADR-0025](adr/0025-arquitectura-hexagonal.md)) con pruebas negativas | Una regla no se relaja: se corrige el código o se escribe un ADR |
 | Análisis estático (SAST) | CodeQL (Java y los propios workflows), consultas `security-extended`, semanal | Gratis en repos públicos |
 | Calidad de código | SonarQube Cloud, **opcional** | Ver más abajo: requiere tu cuenta y un token |
 | Infraestructura como código | `terraform fmt` + `validate` + tflint + Trivy (misconfig) | Sin credenciales de nube, nunca aplica nada |
@@ -37,6 +39,7 @@ falla si cualquiera de los anteriores falló.
 | PR title | El título cumple Conventional Commits |
 | Build and test | `mvn verify`, resumen de cobertura, informes y SBOM de dependencias como artefactos |
 | Terraform | fmt, validate (sin backend), tflint |
+| Static policies | Semgrep con las reglas de la fábrica (`policies/semgrep`): dinero en coma flotante, `@Scheduled` sin bloqueo, inyección por campo, SQL concatenado, migraciones inseguras, cripto débil, XXE… Cualquier hallazgo falla |
 | Operations config | `scripts/check-ops.sh`: Compose, reglas de Prometheus (`promtool`) y Alertmanager (`amtool`) |
 | Whole stack | `scripts/smoke-stack.sh`: levanta todo el Compose y comprueba bot, Prometheus, alertas, Grafana y trazas |
 | Secret scan | gitleaks sobre todo el historial |

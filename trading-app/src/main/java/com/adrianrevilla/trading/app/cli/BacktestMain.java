@@ -24,6 +24,7 @@ public final class BacktestMain {
 
     public static void main(String[] args) throws Exception {
         if (args.length < 4) {
+            // nosemgrep: java-system-out -- this is a command line tool whose job is to print to the console; it does not run inside the service
             System.err.println("Usage: BacktestMain <csvDir> <isinsFile> <benchmarkIsin> <outDir> [gitCommit]");
             System.exit(2);
         }
@@ -33,6 +34,7 @@ public final class BacktestMain {
         RunBacktest backtest = new BacktestRunner(new ReportWriter());
         var outcome = backtest.run(new CsvDirectoryBarSource("csv", Path.of(args[0])), universe, new Isin(args[2]), Path.of(args[3]),
                 args.length > 4 ? args[4] : "unknown", 3);
+        // nosemgrep: java-system-out -- this is a command line tool whose job is to print to the console; it does not run inside the service
         System.out.println(Files.readString(outcome.summary()));
     }
 }

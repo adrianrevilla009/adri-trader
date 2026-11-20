@@ -27,20 +27,26 @@ fi
 global:
   resolve_timeout: 5m
 
+# severity (closed set): page = a human soon; ticket = during the day (the default route, grouped and repeated rarely);
+# info = never sent (only the heartbeat)
 route:
   receiver: $PAGE_RECEIVER
   group_by: [alertname, agent]
-  group_wait: 30s
-  group_interval: 5m
-  repeat_interval: 4h
+  group_wait: 5m
+  group_interval: 6h
+  repeat_interval: 24h
   routes:
     - matchers: [alertname="Watchdog"]
       receiver: heartbeat
       group_wait: 0s
       group_interval: 1m
       repeat_interval: 5m
-    - matchers: [severity="critical"]
+    - matchers: [severity="info"]
+      receiver: blackhole
+    - matchers: [severity="page"]
       receiver: $PAGE_RECEIVER
+      group_wait: 30s
+      group_interval: 5m
       repeat_interval: 1h
 
 inhibit_rules:
@@ -62,8 +68,9 @@ EOF
         message: |-
           {{ if eq .Status "firing" }}ALERT{{ else }}RESOLVED{{ end }} [{{ .CommonLabels.severity }}] {{ .CommonLabels.alertname }}
           {{ range .Alerts }}{{ .Annotations.summary }}
-          {{ if .Annotations.description }}{{ .Annotations.description }}
-          {{ end }}{{ end }}
+          {{ .Annotations.description }}
+          {{ .Annotations.runbook_url }}
+          {{ end }}
 EOF
   fi
   if [ -n "${HEARTBEAT_URL:-}" ]; then

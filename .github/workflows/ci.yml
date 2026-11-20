@@ -141,6 +141,21 @@ jobs:
       - name: Start everything and check that the pieces talk to each other
         run: bash scripts/smoke-stack.sh
 
+  semgrep:
+    name: Static policies (Semgrep, factory rules)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Semgrep with policies/semgrep (any finding fails; justify an exception with nosemgrep and a reason)
+        run: |
+          dirs=(trading-*/src)
+          docker run --rm -v "$PWD:/src:ro" -w /src \
+            semgrep/semgrep@sha256:67518c174185a2043fdbed16c70631b79209499b3671178e7194379b48295a0d \
+            semgrep --metrics=off --disable-version-check --config policies/semgrep --error --quiet \
+            "${dirs[@]}" infra/terraform
+
   secrets-scan:
     name: Secret scan (gitleaks, full history)
     runs-on: ubuntu-latest
@@ -330,7 +345,7 @@ jobs:
   ci-gate:
     name: CI gate
     if: always()
-    needs: [build-test, terraform, ops-config, stack-smoke, secrets-scan, repo-scan, dependency-review, image, sonar, pr-title]
+    needs: [build-test, terraform, semgrep, ops-config, stack-smoke, secrets-scan, repo-scan, dependency-review, image, sonar, pr-title]
     runs-on: ubuntu-latest
     steps:
       - name: Every required job passed (skipped is fine only for jobs that are conditional)

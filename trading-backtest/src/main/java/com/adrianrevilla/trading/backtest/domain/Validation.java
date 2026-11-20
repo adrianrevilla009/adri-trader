@@ -73,6 +73,7 @@ public final class Validation {
 
     /** Block bootstrap of daily returns (seeded): plausible range of annual return and maximum drawdown. */
     public static BootstrapResult bootstrap(double[] dailyReturns, int blockLength, int iterations, long seed) {
+        // nosemgrep: java-weak-crypto-algorithm -- seeded PRNG for reproducible simulations, not a security use
         Random rnd = new Random(seed);
         int n = dailyReturns.length;
         double[] cagrs = new double[iterations];

@@ -1,4 +1,8 @@
-# Alert rules. `severity: critical` pages immediately; `warning` is for looking at during the day.
+# Alert rules (factory standard 10-observability-app).
+#   severity: page    needs a human soon, and is actionable (money or integrity at risk, or the bot is blind)
+#   severity: ticket  look at it during the day; nothing is lost if it waits
+#   severity: info    never sent to a person (only the heartbeat)
+# Every alert has summary, description and runbook_url. What to do is in docs/runbook.md, section "Qué hacer ante cada alerta".
 # The bot's own watchdog (Telegram) covers some of the same conditions from the inside; these rules matter most for what
 # the bot cannot see about itself: it being down, its database unreachable, backups silently failing.
 groups:
@@ -8,98 +12,131 @@ groups:
         # Always firing. Alertmanager sends it to HEARTBEAT_URL (an external dead-man's-switch service) when set, so a
         # dead VM or a dead Alertmanager is noticed from outside.
         expr: vector(1)
-        labels: {severity: none}
-        annotations: {summary: "Heartbeat: the alerting pipeline is alive"}
+        labels: {severity: info}
+        annotations:
+          summary: "Heartbeat: the alerting pipeline is alive"
+          description: "Always firing on purpose. If an external dead-man's-switch stops receiving it, the machine or the alerting is down."
+          runbook_url: "https://github.com/adrianrevilla009/adri-trader/blob/main/docs/runbook.md#qué-hacer-ante-cada-alerta"
 
       - alert: BotDown
         expr: up{job="trading-bot"} == 0
         for: 5m
-        labels: {severity: critical}
+        labels: {severity: page}
         annotations:
           summary: "The bot is not answering"
           description: "Prometheus cannot scrape the bot for 5 minutes: it is down, restarting in a loop or hung."
+          runbook_url: "https://github.com/adrianrevilla009/adri-trader/blob/main/docs/runbook.md#qué-hacer-ante-cada-alerta"
 
       - alert: BotRestartedRecently
+        # for: 1m so a single scrape taken right after a deploy does not flap; it still clears by itself after 5 minutes.
         expr: (time() - process_start_time_seconds{job="trading-bot"}) < 300
-        for: 0m
-        labels: {severity: warning}
+        for: 1m
+        labels: {severity: info}
         annotations:
           summary: "The bot restarted in the last 5 minutes"
+          description: "Expected after a deploy. If it was not a deploy, look at the logs for the reason (out of memory exits the process on purpose)."
+          runbook_url: "https://github.com/adrianrevilla009/adri-trader/blob/main/docs/runbook.md#qué-hacer-ante-cada-alerta"
 
       - alert: DatabaseUnreachableFromBot
         expr: trading_metrics_refresh_age_seconds > 300
         for: 5m
-        labels: {severity: critical}
+        labels: {severity: page}
         annotations:
           summary: "The bot cannot read its database"
           description: "The business metrics have not refreshed for {{ $value | humanizeDuration }}."
+          runbook_url: "https://github.com/adrianrevilla009/adri-trader/blob/main/docs/runbook.md#qué-hacer-ante-cada-alerta"
 
       - alert: MetricsRefreshFailing
         expr: increase(trading_metrics_refresh_failures_total[15m]) > 3
-        labels: {severity: warning}
-        annotations: {summary: "Reading the business metrics keeps failing"}
+        for: 5m
+        labels: {severity: ticket}
+        annotations:
+          summary: "Reading the business metrics keeps failing"
+          description: "More than 3 failed reads in 15 minutes: the dashboards show stale values."
+          runbook_url: "https://github.com/adrianrevilla009/adri-trader/blob/main/docs/runbook.md#qué-hacer-ante-cada-alerta"
 
   - name: trading-safety
     rules:
       - alert: KillSwitchActive
         expr: trading_kill_switch_active == 1
         for: 1m
-        labels: {severity: critical}
+        labels: {severity: page}
         annotations:
           summary: "Kill switch is ON: no orders are sent"
-          description: "Deactivate it only after finding out why it was activated (docs/runbook.md)."
+          description: "Deactivate it only after finding out why it was activated."
+          runbook_url: "https://github.com/adrianrevilla009/adri-trader/blob/main/docs/runbook.md#kill-switch"
 
       - alert: TradingDayStuck
         expr: trading_days_stuck > 0
-        labels: {severity: critical}
+        for: 5m
+        labels: {severity: page}
         annotations:
           summary: "A trading day started and never finished"
           description: "It is never retried automatically (it could duplicate orders). Reconcile with the broker first."
+          runbook_url: "https://github.com/adrianrevilla009/adri-trader/blob/main/docs/runbook.md#qué-hacer-ante-cada-alerta"
 
       - alert: TradingDayFailed
         expr: trading_days_failed_3d > 0
-        labels: {severity: critical}
-        annotations: {summary: "A trading day failed in the last 3 days"}
+        for: 5m
+        labels: {severity: page}
+        annotations:
+          summary: "A trading day failed in the last 3 days"
+          description: "An agent's daily run ended FAILED. Read the detail in trading_day and the bot log before the next run."
+          runbook_url: "https://github.com/adrianrevilla009/adri-trader/blob/main/docs/runbook.md#qué-hacer-ante-cada-alerta"
 
       - alert: OrderOutcomeUnknown
         expr: trading_unknown_orders_stale > 0
-        labels: {severity: critical}
+        for: 5m
+        labels: {severity: page}
         annotations:
           summary: "An order has an unknown outcome for more than a day"
           description: "The broker may or may not have executed it. Check the broker before anything else."
+          runbook_url: "https://github.com/adrianrevilla009/adri-trader/blob/main/docs/runbook.md#qué-hacer-ante-cada-alerta"
 
       - alert: OrdersRejected
         expr: sum(delta(trading_orders{state="REJECTED"}[1d])) > 0
-        labels: {severity: warning}
-        annotations: {summary: "The broker rejected orders in the last day"}
+        for: 5m
+        labels: {severity: ticket}
+        annotations:
+          summary: "The broker rejected orders in the last day"
+          description: "Look at trade_order.note for the reason; repeated rejections point to a wrong instrument id, size or session."
+          runbook_url: "https://github.com/adrianrevilla009/adri-trader/blob/main/docs/runbook.md#qué-hacer-ante-cada-alerta"
 
   - name: money
     rules:
       - alert: AgentDrawdownWarning
         expr: trading_agent_drawdown_ratio > 0.10 and trading_agent_drawdown_ratio <= 0.15
         for: 30m
-        labels: {severity: warning}
+        labels: {severity: ticket}
         annotations:
           summary: "Agent {{ $labels.agent }} is {{ $value | humanizePercentage }} below its peak"
+          description: "The agent is retired at 15 % (ADR-0016). Nothing to do yet; this is the early warning."
+          runbook_url: "https://github.com/adrianrevilla009/adri-trader/blob/main/docs/runbook.md#qué-hacer-ante-cada-alerta"
       - alert: AgentDrawdownLimit
         # 0.15 is trading.risk.agent-max-drawdown (ADR-0016): the agent is retired at this level.
         expr: trading_agent_drawdown_ratio > 0.15
         for: 10m
-        labels: {severity: critical}
+        labels: {severity: page}
         annotations:
           summary: "Agent {{ $labels.agent }} passed the drawdown limit ({{ $value | humanizePercentage }})"
+          description: "The risk manager retires the agent at this level. It is not reactivated without a human review."
+          runbook_url: "https://github.com/adrianrevilla009/adri-trader/blob/main/docs/runbook.md#qué-hacer-ante-cada-alerta"
       - alert: AgentEquityDroppedInADay
         expr: trading_agent_equity_eur / (trading_agent_equity_eur offset 1d) < 0.95
         for: 10m
-        labels: {severity: warning}
+        labels: {severity: ticket}
         annotations:
           summary: "Agent {{ $labels.agent }} lost more than 5 % of its equity in a day"
+          description: "A fast drop usually means a market move, a data error or a bug in the strategy. Compare with the benchmark agent."
+          runbook_url: "https://github.com/adrianrevilla009/adri-trader/blob/main/docs/runbook.md#qué-hacer-ante-cada-alerta"
       - alert: NegativeCash
         expr: trading_cash_eur < 0
         for: 5m
-        labels: {severity: critical}
+        labels: {severity: page}
         annotations:
-          summary: "Agent {{ $labels.agent }} has negative cash: an accounting error or an unreconciled fill"
+          summary: "Agent {{ $labels.agent }} has negative cash"
+          description: "An accounting error or an unreconciled fill. The ledger is append-only: investigate before correcting."
+          runbook_url: "https://github.com/adrianrevilla009/adri-trader/blob/main/docs/runbook.md#qué-hacer-ante-cada-alerta"
 
   - name: pipeline
     rules:
@@ -107,43 +144,68 @@ groups:
         # 4 days covers a weekend plus one exchange holiday.
         expr: trading_data_age_days > 4
         for: 1h
-        labels: {severity: warning}
-        annotations: {summary: "The newest market data is {{ $value }} days old"}
+        labels: {severity: ticket}
+        annotations:
+          summary: "The newest market data is {{ $value }} days old"
+          description: "The daily ingestion is failing or the source changed. Agents must not decide on stale data."
+          runbook_url: "https://github.com/adrianrevilla009/adri-trader/blob/main/docs/runbook.md#qué-hacer-ante-cada-alerta"
       - alert: NoMarketData
         expr: trading_data_age_days < 0
         for: 6h
-        labels: {severity: warning}
-        annotations: {summary: "There is no market data at all"}
+        labels: {severity: ticket}
+        annotations:
+          summary: "There is no market data at all"
+          description: "The first download has not completed. Check the ingestion logs (the source may be rate limiting)."
+          runbook_url: "https://github.com/adrianrevilla009/adri-trader/blob/main/docs/runbook.md#qué-hacer-ante-cada-alerta"
       - alert: CriticalDataIssues
         expr: trading_data_issues_critical_30d > 0
-        labels: {severity: warning}
-        annotations: {summary: "Critical data-quality issues in the last 30 days"}
+        for: 30m
+        labels: {severity: ticket}
+        annotations:
+          summary: "Critical data-quality issues in the last 30 days"
+          description: "Open rows in data_quality_issue with CRITICAL severity. Do not decide with doubtful data."
+          runbook_url: "https://github.com/adrianrevilla009/adri-trader/blob/main/docs/runbook.md#qué-hacer-ante-cada-alerta"
       - alert: ArenaNotRunning
         expr: trading_arena_age_days > 4
         for: 1h
-        labels: {severity: warning}
-        annotations: {summary: "The arena has not recorded a day for {{ $value }} days"}
+        labels: {severity: ticket}
+        annotations:
+          summary: "The arena has not recorded a day for {{ $value }} days"
+          description: "The nightly arena job is not running or is failing after the ingestion."
+          runbook_url: "https://github.com/adrianrevilla009/adri-trader/blob/main/docs/runbook.md#qué-hacer-ante-cada-alerta"
       - alert: BackupMissing
         # the backup job touches a marker after each verified dump; nightly, so 30 h means at least one night was missed
         expr: trading_backup_age_seconds > 30 * 3600
         for: 10m
-        labels: {severity: critical}
+        labels: {severity: page}
         annotations:
           summary: "No verified database backup for {{ $value | humanizeDuration }}"
+          description: "At least one nightly dump failed or the backup service is not running."
+          runbook_url: "https://github.com/adrianrevilla009/adri-trader/blob/main/docs/runbook.md#copias-de-seguridad"
 
   - name: runtime
     rules:
       - alert: JvmHeapHigh
         expr: sum(jvm_memory_used_bytes{area="heap"}) / sum(jvm_memory_max_bytes{area="heap"}) > 0.9
         for: 10m
-        labels: {severity: warning}
-        annotations: {summary: "The bot's heap is over 90 % for 10 minutes"}
+        labels: {severity: ticket}
+        annotations:
+          summary: "The bot's heap is over 90 % for 10 minutes"
+          description: "Cause, not symptom: it goes to a panel and a ticket. The process exits on out-of-memory and restarts."
+          runbook_url: "https://github.com/adrianrevilla009/adri-trader/blob/main/docs/runbook.md#qué-hacer-ante-cada-alerta"
       - alert: DatabasePoolWaiting
         expr: hikaricp_connections_pending > 0
         for: 5m
-        labels: {severity: warning}
-        annotations: {summary: "Threads are waiting for a database connection"}
+        labels: {severity: ticket}
+        annotations:
+          summary: "Threads are waiting for a database connection"
+          description: "Saturation symptom of the connection pool (factory standard 10): a slow query or a connection leak."
+          runbook_url: "https://github.com/adrianrevilla009/adri-trader/blob/main/docs/runbook.md#qué-hacer-ante-cada-alerta"
       - alert: ScheduledJobFailing
         expr: increase(tasks_scheduled_execution_seconds_count{outcome="ERROR"}[1h]) > 0
-        labels: {severity: warning}
-        annotations: {summary: "A scheduled job ended with an error ({{ $labels.code_function }})"}
+        for: 5m
+        labels: {severity: ticket}
+        annotations:
+          summary: "A scheduled job ended with an error ({{ $labels.code_function }})"
+          description: "One of the bot's scheduled tasks threw an exception. The log has the stack trace."
+          runbook_url: "https://github.com/adrianrevilla009/adri-trader/blob/main/docs/runbook.md#qué-hacer-ante-cada-alerta"

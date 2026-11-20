@@ -1,0 +1,17 @@
+rules:
+  - id: java-weak-crypto-algorithm
+    languages: [java]
+    severity: ERROR
+    message: "Algoritmo o modo debil. Usar AES-GCM, SHA-256+ y SecureRandom (skill crypto-tls-mtls-key-rotation)."
+    pattern-either:
+      - pattern: MessageDigest.getInstance("MD5")
+      - pattern: MessageDigest.getInstance("SHA-1")
+      - patterns:
+          - pattern: Cipher.getInstance($ALG)
+          - metavariable-regex:
+              metavariable: $ALG
+              regex: '^"(DES.*|RC4.*|AES|AES/ECB/.*)"$'
+      - pattern: new java.util.Random(...)
+    metadata:
+      skill: crypto-tls-mtls-key-rotation
+      note: "java.util.Random solo es problema en contexto de seguridad. Probada con semgrep 1.184.0 (tests/semgrep)."

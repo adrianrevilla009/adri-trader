@@ -15,7 +15,6 @@ import java.io.IOException;
 import java.time.Clock;
 import javax.sql.DataSource;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -48,6 +47,7 @@ public class MonitoringConfig {
             this.watchdog = watchdog;
         }
 
+        // nosemgrep: java-scheduled-without-lock -- single instance by design (ADR-0009/0026); the watchdog and the metrics read are idempotent
         @Scheduled(initialDelayString = "${trading.monitoring.initial-delay-ms:60000}",
                 fixedDelayString = "${trading.monitoring.interval-ms:1800000}")
         public void run() {
@@ -63,9 +63,9 @@ public class MonitoringConfig {
 
     @Bean
     BusinessMetrics businessMetrics(BusinessReadModel readModel, MonitoringQueries queries, MeterRegistry registry,
-            Clock clock, @Value("${trading.monitoring.backup-marker:}") String backupMarker) {
+            Clock clock, MonitoringProperties props) {
         return new BusinessMetrics(readModel, queries, registry, clock,
-                backupMarker.isBlank() ? null : java.nio.file.Path.of(backupMarker));
+                props.backupMarker().isBlank() ? null : java.nio.file.Path.of(props.backupMarker()));
     }
 
     @Bean
@@ -81,6 +81,7 @@ public class MonitoringConfig {
             this.metrics = metrics;
         }
 
+        // nosemgrep: java-scheduled-without-lock -- single instance by design (ADR-0009/0026); the watchdog and the metrics read are idempotent
         @Scheduled(initialDelayString = "${trading.monitoring.metrics-initial-delay-ms:5000}",
                 fixedDelayString = "${trading.monitoring.metrics-interval-ms:30000}")
         public void run() {
@@ -95,9 +96,9 @@ public class MonitoringConfig {
     @Bean(initMethod = "start", destroyMethod = "stop")
     @org.springframework.boot.autoconfigure.condition.ConditionalOnExpression("${trading.monitoring.port:8098} >= 0")
     StatusServer statusServer(MonitoringQueries queries, ObjectProvider<PrometheusMeterRegistry> prometheus,
-            @Value("${trading.monitoring.port:8098}") int port,
-            @Value("${trading.monitoring.bind-address:127.0.0.1}") String bindAddress) throws IOException {
+            MonitoringProperties props) throws IOException {
         PrometheusMeterRegistry registry = prometheus.getIfAvailable();
-        return new StatusServer(queries::snapshot, port, bindAddress, registry == null ? null : registry::scrape);
+        return new StatusServer(queries::snapshot, props.port(), props.bindAddress(),
+                registry == null ? null : registry::scrape);
     }
 }

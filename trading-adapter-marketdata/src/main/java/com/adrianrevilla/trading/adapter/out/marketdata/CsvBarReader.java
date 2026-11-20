@@ -19,7 +19,7 @@ public final class CsvBarReader {
         List<Bar> bars = new ArrayList<>();
         try (BufferedReader in = new BufferedReader(reader)) {
             String header = in.readLine();
-            if (header == null || !header.toLowerCase().startsWith("date")) {
+            if (header == null || !header.toLowerCase(java.util.Locale.ROOT).startsWith("date")) {
                 throw new IOException("Missing CSV header");
             }
             String line;
