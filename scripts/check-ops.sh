@@ -13,7 +13,9 @@ echo "== docker compose config"
 DB_PASSWORD=x GRAFANA_PASSWORD=x docker compose --profile observability config -q
 
 echo "== shell scripts parse"
-for f in ops/backup/backup-loop.sh ops/alertmanager/entrypoint.sh scripts/*.sh; do sh -n "$f"; done
+# the scripts that run inside busybox containers must be plain POSIX sh; the host scripts are bash
+for f in ops/backup/backup-loop.sh ops/alertmanager/entrypoint.sh; do sh -n "$f"; done
+for f in scripts/*.sh; do bash -n "$f"; done
 
 echo "== promtool: config and rules"
 docker run --rm --entrypoint promtool -v "$PWD/ops/prometheus:/etc/prometheus:ro" "$PROM" \
