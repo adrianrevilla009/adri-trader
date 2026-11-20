@@ -39,3 +39,8 @@ trading:
   telegram:
     bot-token: ${TELEGRAM_BOT_TOKEN:}
     chat-id: ${TELEGRAM_CHAT_ID:}
+  arena:
+    # Nightly arena run; off until a universe and benchmark are configured.
+    enabled: false
+    capital: 100
+    report-dir: reports/arena

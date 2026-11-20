@@ -49,6 +49,37 @@ public class DataConfig {
         return new ScheduledIngestion(job);
     }
 
+    @Bean
+    JdbcArenaJournal arenaJournal(DataSource dataSource) {
+        return new JdbcArenaJournal(dataSource);
+    }
+
+    /** Disabled by default: needs the universe and the benchmark. Runs after the ingestion. */
+    @Bean
+    @ConditionalOnProperty(name = "trading.arena.enabled", havingValue = "true")
+    ScheduledArena scheduledArena(BarRepository repository, JdbcArenaJournal journal, Alerter alerter,
+            @Value("${trading.ingestion.isins}") List<String> isins,
+            @Value("${trading.arena.benchmark}") String benchmark,
+            @Value("${trading.arena.capital:100}") java.math.BigDecimal capital,
+            @Value("${trading.arena.report-dir:reports/arena}") String reportDir) {
+        var job = new ArenaDailyJob(repository, isins.stream().map(Isin::new).toList(), new Isin(benchmark), "XETRA",
+                capital, journal, alerter, Path.of(reportDir));
+        return new ScheduledArena(job);
+    }
+
+    public static class ScheduledArena {
+        private final ArenaDailyJob job;
+
+        ScheduledArena(ArenaDailyJob job) {
+            this.job = job;
+        }
+
+        @Scheduled(cron = "${trading.arena.cron:0 30 19 * * MON-FRI}", zone = "Europe/Berlin")
+        public void run() {
+            job.run();
+        }
+    }
+
     public static class ScheduledIngestion {
         private final DailyIngestionJob job;
 
