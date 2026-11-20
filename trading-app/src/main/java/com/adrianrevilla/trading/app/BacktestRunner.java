@@ -58,26 +58,55 @@ public final class BacktestRunner {
             .withMinOrder(BigDecimal.ONE).withAdjuster(TargetAdjuster.maxWeightPerAsset(new BigDecimal("0.25")));
     private final BacktestConfig benchCfg = cfg.withAdjuster(TargetAdjuster.NONE);
 
+    /**
+     * Critical issues that matter for this run: only dates inside the common window, and a day missing in every
+     * instrument at once is a market closure (the calendar is unverified), not a data gap.
+     */
+    static List<QualityIssue> relevantIssues(Map<Isin, List<QualityIssue>> byIsin, LocalDate windowStart) {
+        Set<LocalDate> closedForAll = null;
+        for (List<QualityIssue> l : byIsin.values()) {
+            Set<LocalDate> gaps = new java.util.HashSet<>();
+            l.stream().filter(i -> i.type() == QualityIssue.Type.GAP).forEach(i -> gaps.add(i.date()));
+            if (closedForAll == null) {
+                closedForAll = gaps;
+            } else {
+                closedForAll.retainAll(gaps);
+            }
+        }
+        Set<LocalDate> closed = closedForAll == null ? Set.of() : closedForAll;
+        List<QualityIssue> out = new ArrayList<>();
+        for (List<QualityIssue> l : byIsin.values()) {
+            for (QualityIssue i : l) {
+                boolean closure = i.type() == QualityIssue.Type.GAP && closed.contains(i.date());
+                if (!i.date().isBefore(windowStart) && !closure) {
+                    out.add(i);
+                }
+            }
+        }
+        return out;
+    }
+
     public Outcome run(Path csvDir, List<Isin> universe, Isin benchmark, Path outDir, String gitCommit, int holdoutYears)
             throws IOException {
         var source = new CsvDirectoryBarSource("csv", csvDir);
         var validator = new DataQualityValidator(new XetraCalendar());
         Map<Isin, List<Bar>> data = new LinkedHashMap<>();
-        List<QualityIssue> critical = new ArrayList<>();
+        Map<Isin, List<QualityIssue>> issuesByIsin = new LinkedHashMap<>();
         List<Isin> all = new ArrayList<>(universe);
         if (!all.contains(benchmark)) {
             all.add(benchmark);
         }
         for (Isin isin : all) {
             List<Bar> raw = source.fetch(isin);
-            validator.validate(raw, Set.of()).stream()
-                    .filter(i -> i.severity() == QualityIssue.Severity.CRITICAL).forEach(critical::add);
+            issuesByIsin.put(isin, validator.validate(raw, Set.of()).stream()
+                    .filter(i -> i.severity() == QualityIssue.Severity.CRITICAL).toList());
             data.put(isin, new BarCleaner().clean(List.of(raw)));
         }
         LocalDate dataStart = data.values().stream().mapToLong(b -> b.get(0).date().toEpochDay()).max()
                 .stream().mapToObj(LocalDate::ofEpochDay).findFirst().orElseThrow();
         LocalDate dataEnd = data.values().stream().mapToLong(b -> b.get(b.size() - 1).date().toEpochDay()).min()
                 .stream().mapToObj(LocalDate::ofEpochDay).findFirst().orElseThrow();
+        List<QualityIssue> critical = relevantIssues(issuesByIsin, dataStart);
         var holdout = new Validation.Holdout(dataEnd, holdoutYears);
         LocalDate designEnd = holdout.designEnd();
         String hash = DatasetHash.of(data);
@@ -158,6 +187,11 @@ public final class BacktestRunner {
         if (!critical.isEmpty()) {
             sb.append("- **Datos con ").append(critical.size())
                     .append(" incidencias críticas: no fiarse de estos resultados hasta limpiarlas.**\n");
+            var byType = new java.util.TreeMap<QualityIssue.Type, List<QualityIssue>>();
+            critical.forEach(i -> byType.computeIfAbsent(i.type(), t -> new ArrayList<>()).add(i));
+            byType.forEach((type, list) -> sb.append("  - ").append(type).append(": ").append(list.size())
+                    .append(" (ej. ").append(list.stream().limit(5).map(i -> i.date().toString())
+                            .collect(java.util.stream.Collectors.joining(", "))).append(")\n"));
         }
         sb.append("\n| Estrategia | Ventanas ganadas | Ventanas | Estable ±20% | Operaciones | Cumple |\n| --- | --- | --- | --- | --- | --- |\n");
         for (Verdict v : verdicts) {

@@ -3,6 +3,7 @@ package com.adrianrevilla.trading.app;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.adrianrevilla.trading.core.Isin;
+import com.adrianrevilla.trading.data.QualityIssue;
 import com.adrianrevilla.trading.data.XetraCalendar;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -83,5 +84,20 @@ class BacktestRunnerTest {
         var outcome = new BacktestRunner().run(csv, UNIVERSE, UNIVERSE.get(0), tmp.resolve("out"), "x", 3);
         assertThat(outcome.criticalIssues()).isNotEmpty();
         assertThat(Files.readString(outcome.summary())).contains("incidencias críticas");
+    }
+
+    @Test
+    void aDayMissingInEveryInstrumentIsAClosureAndOldIssuesAreIgnored() {
+        var closed = LocalDate.parse("2020-05-01");
+        var lonely = LocalDate.parse("2020-06-02");
+        var old = LocalDate.parse("2009-01-05");
+        java.util.function.BiFunction<QualityIssue.Type, LocalDate, QualityIssue> q =
+                (type, d) -> new QualityIssue(type, QualityIssue.Severity.CRITICAL, d, "x");
+        var a = List.of(q.apply(QualityIssue.Type.GAP, closed), q.apply(QualityIssue.Type.GAP, lonely),
+                q.apply(QualityIssue.Type.PRICE_JUMP, old));
+        var b = List.of(q.apply(QualityIssue.Type.GAP, closed));
+        var result = BacktestRunner.relevantIssues(java.util.Map.of(UNIVERSE.get(0), a, UNIVERSE.get(1), b),
+                LocalDate.parse("2014-01-01"));
+        assertThat(result).extracting(QualityIssue::date).containsExactly(lonely);
     }
 }
