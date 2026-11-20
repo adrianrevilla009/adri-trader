@@ -24,6 +24,16 @@ public class ExecutionConfig {
         return new JdbcKillSwitch(dataSource);
     }
 
+    /** Only created when KILL_SWITCH_TOKEN is set (16+ characters); listens on the loopback address only. */
+    @Bean(initMethod = "start", destroyMethod = "stop")
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnExpression(
+            "!'${trading.killswitch.token:}'.isEmpty()")
+    KillSwitchServer killSwitchServer(KillSwitch killSwitch, Alerter alerter,
+            @Value("${trading.killswitch.token}") String token,
+            @Value("${trading.killswitch.port:8099}") int port) throws java.io.IOException {
+        return new KillSwitchServer(killSwitch, token, port, alerter);
+    }
+
     @Bean
     OrderRepository orderRepository(DataSource dataSource) {
         return new JdbcOrderRepository(dataSource);
