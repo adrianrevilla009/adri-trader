@@ -14,7 +14,7 @@ DB_PASSWORD=x GRAFANA_PASSWORD=x docker compose --profile observability config -
 
 echo "== shell scripts parse"
 # the scripts that run inside busybox containers must be plain POSIX sh; the host scripts are bash
-for f in ops/backup/backup-loop.sh ops/alertmanager/entrypoint.sh; do sh -n "$f"; done
+for f in ops/backup/backup-loop.sh ops/alertmanager/entrypoint.sh ops/offsite/ship-backups.sh; do sh -n "$f"; done
 for f in scripts/*.sh; do bash -n "$f"; done
 
 echo "== promtool: config and rules"

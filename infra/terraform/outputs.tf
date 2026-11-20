@@ -14,3 +14,12 @@ output "key_vault_uri" {
 output "log_analytics_workspace_id" {
   value = azurerm_log_analytics_workspace.main.workspace_id
 }
+
+output "vm_public_ip" {
+  description = "ssh deploy@<this ip>; also the address the broker sees"
+  value       = one(azurerm_public_ip.main[*].ip_address)
+}
+
+output "backup_storage_account" {
+  value = one(azurerm_storage_account.backups[*].name)
+}

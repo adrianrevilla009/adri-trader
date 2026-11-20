@@ -14,7 +14,8 @@ terraform {
 
 provider "azurerm" {
   features {}
-  subscription_id = var.subscription_id
+  subscription_id     = var.subscription_id
+  storage_use_azuread = true # the backup storage account has no account keys: containers are managed with Entra ID
 }
 
 data "azurerm_client_config" "current" {}
@@ -116,7 +117,7 @@ resource "azurerm_key_vault" "main" {
   network_acls {
     default_action = "Deny"
     bypass         = "AzureServices"
-    ip_rules       = [var.my_public_ip]
+    ip_rules       = concat([var.my_public_ip], azurerm_public_ip.main[*].ip_address) # + the VM, when it exists
   }
 }
 

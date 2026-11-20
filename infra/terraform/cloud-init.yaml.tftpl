@@ -1,0 +1,46 @@
+#cloud-config
+# First boot of the VM: Docker, the repository (public), automatic security updates and the nightly off-machine
+# backup. No secret is in this file (it is visible in the VM metadata). Secrets go into /opt/adri-trader/.env by hand
+# over SSH (see docs/observability.md), and the application is deployed with scripts/deploy.sh.
+package_update: true
+package_upgrade: true
+packages:
+  - docker.io
+  - docker-compose-v2
+  - git
+  - unattended-upgrades
+  - fail2ban
+
+write_files:
+  - path: /etc/systemd/system/offsite-backup.service
+    content: |
+      [Unit]
+      Description=Copy database dumps to Azure Blob Storage
+      After=docker.service
+      [Service]
+      Type=oneshot
+      Environment=STORAGE_ACCOUNT=${storage_account}
+      Environment=CONTAINER=${container}
+      ExecStart=/opt/adri-trader/ops/offsite/ship-backups.sh
+  - path: /etc/systemd/system/offsite-backup.timer
+    content: |
+      [Unit]
+      Description=Nightly off-machine backup
+      [Timer]
+      # after the 03:15 UTC dump made by the backup service
+      OnCalendar=*-*-* 04:00:00 UTC
+      Persistent=true
+      [Install]
+      WantedBy=timers.target
+  - path: /etc/docker/daemon.json
+    content: |
+      {"log-driver": "json-file", "log-opts": {"max-size": "10m", "max-file": "5"}}
+
+runcmd:
+  - systemctl enable --now docker
+  - systemctl enable --now fail2ban
+  - git clone ${repo_url} /opt/adri-trader
+  - chown -R deploy:deploy /opt/adri-trader
+  - usermod -aG docker deploy
+  - systemctl daemon-reload
+  - systemctl enable --now offsite-backup.timer

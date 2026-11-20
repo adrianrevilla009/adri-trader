@@ -111,6 +111,39 @@ por endpoint). No lo hice antes de que exista el broker real para no instrumenta
 - Tests de integración (`BusinessMetricsTest`) con PostgreSQL real: valores por agente, drawdown, retirada de agentes, base
   caída (se conservan los últimos valores y se cuenta el fallo) y la medida de la copia.
 
+## Desplegar en un servidor (Azure VM)
+
+El bot corre en una sola máquina virtual con Docker Compose, igual que en tu equipo. `infra/terraform/vm.tf` la crea (apagada
+por defecto: `enable_vm = true` para crearla; cuesta dinero mientras exista):
+
+- Ubuntu 24.04, 4 GB de RAM (`Standard_B2s`), disco de 64 GB, **solo SSH y solo desde tu IP**, sin contraseña (clave SSH).
+  Grafana no se expone nunca: túnel SSH.
+- IP pública **estática**: es la dirección que vería eToro, por si hay que permitirla allí.
+- Identidad gestionada de la máquina: lee el Key Vault y escribe las copias, sin ninguna clave guardada.
+- Cuenta de almacenamiento para **copias fuera de la máquina**: sin claves de cuenta (solo Entra ID), TLS 1.2, red denegada
+  salvo tu IP y la de la VM, versionado y papelera de 30 días, redundancia geográfica, borrado automático a 90 días. Una
+  copia en el mismo disco que la base de datos no protege de perder el disco.
+- `cloud-init`: Docker, el repositorio en `/opt/adri-trader`, fail2ban, actualizaciones de seguridad automáticas y un
+  temporizador de systemd que sube las copias cada noche a las 04:00 UTC (`ops/offsite/ship-backups.sh`).
+
+```bash
+# una vez, desde tu equipo
+cd infra/terraform && cp terraform.tfvars.example terraform.tfvars   # enable_vm = true, ssh_public_key, tu IP
+export TF_VAR_db_admin_password=...  && terraform apply
+ssh deploy@$(terraform output -raw vm_public_ip)
+
+# en la VM
+cd /opt/adri-trader && make init          # genera .env; añade TELEGRAM_* y, más adelante, las claves de eToro
+scripts/deploy.sh 0.1.0                   # descarga, VERIFICA LA FIRMA y arranca por digest
+ssh -L 3000:127.0.0.1:3000 deploy@<ip>    # desde tu equipo, para ver Grafana
+```
+
+`scripts/deploy.sh` **no arranca una imagen que no esté firmada por el workflow de release de este repositorio** (cosign
+sin clave). Necesita que exista una versión publicada, es decir, la primera etiqueta `v0.x.y`.
+
+Como el bot guarda su base de datos en la propia VM (PostgreSQL en Compose), el servidor gestionado de `main.tf` queda como
+alternativa para practicar; no se usa en este despliegue.
+
 ## Qué no está verificado
 
 - **La entrega a Telegram desde Alertmanager.** La configuración valida y el flujo hasta Alertmanager está probado, pero no he
@@ -119,5 +152,8 @@ por endpoint). No lo hice antes de que exista el broker real para no instrumenta
 - Los umbrales de alerta son razonables, no calibrados con datos reales de operación.
 - El dashboard se verificó en sus 47 consultas (todas evalúan sin error), no mirándolo con datos de varias semanas.
 - Retención de métricas, trazas y copias en disco: dimensionada a ojo para un volumen pequeño.
-- Las copias viven en un volumen **de la misma máquina**. Una copia que está en el mismo disco no protege del disco. Hay que
-  copiarlas fuera (Azure Blob con Terraform es el siguiente paso, ver `infra/terraform`).
+- **Todo el apartado de la VM**: `terraform validate` y Trivy pasan y la plantilla de cloud-init se renderiza, pero **nunca se ha
+  aplicado** ni se ha arrancado una VM. `ship-backups.sh` (contenedor de Azure CLI con identidad gestionada) y `deploy.sh`
+  (verificación cosign) tampoco se han ejecutado contra Azure ni contra una imagen publicada. Esperar algún ajuste al primer uso.
+- Las imágenes fijadas dentro de `scripts/` (Azure CLI, cosign) no las actualiza Dependabot: revisarlas a mano de vez en cuando.
+- Sin la subida a Azure, las copias viven en un volumen de la misma máquina y no protegen de perder el disco.
