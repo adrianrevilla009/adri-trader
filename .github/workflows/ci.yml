@@ -144,15 +144,25 @@ jobs:
           persist-credentials: false
       # Dockerfile and Terraform misconfigurations plus secrets. Dependencies are scanned in the image job (the real
       # artifact), so pom.xml files are skipped here to avoid resolving them against Maven Central.
-      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+      - name: Report to code scanning (SARIF, never fails)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: fs
+          scanners: misconfig,secret
+          skip-files: pom.xml,**/pom.xml
+          severity: LOW,MEDIUM,HIGH,CRITICAL
+          exit-code: '0'
+          format: sarif
+          output: trivy-repo.sarif
+      - name: Gate (table in the log, fails on any finding)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: fs
           scanners: misconfig,secret
           skip-files: pom.xml,**/pom.xml
           severity: LOW,MEDIUM,HIGH,CRITICAL
           exit-code: '1'
-          format: sarif
-          output: trivy-repo.sarif
+          format: table
       - name: Upload to code scanning
         if: always() && github.event_name != 'pull_request'
         uses: github/codeql-action/upload-sarif@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4
