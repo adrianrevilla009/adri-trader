@@ -21,7 +21,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 /** The whole application starts against a real PostgreSQL: Flyway, configuration, beans and the endpoint. */
 @Testcontainers
-@SpringBootTest(properties = {"trading.killswitch.token=0123456789abcdef-secret", "trading.killswitch.port=0"})
+@SpringBootTest(properties = {"trading.killswitch.token=0123456789abcdef-secret", "trading.killswitch.port=0", "trading.monitoring.port=0"})
 class ApplicationContextTest {
     @Container
     static final PostgreSQLContainer<?> PG = new PostgreSQLContainer<>("postgres:16-alpine");
