@@ -12,14 +12,20 @@
   <modules>
     <module>trading-core</module>
     <module>trading-data</module>
-    <module>trading-backtest</module>
     <module>trading-strategies</module>
     <module>trading-risk</module>
+    <module>trading-backtest</module>
     <module>trading-execution</module>
-    <module>trading-broker-sim</module>
-    <module>trading-broker-etoro</module>
     <module>trading-arena</module>
     <module>trading-tax</module>
+    <module>trading-broker-sim</module>
+    <module>trading-broker-etoro</module>
+    <module>trading-application</module>
+    <module>trading-adapter-persistence</module>
+    <module>trading-adapter-marketdata</module>
+    <module>trading-adapter-notification</module>
+    <module>trading-adapter-web</module>
+    <module>trading-adapter-metrics</module>
     <module>trading-app</module>
   </modules>
 
@@ -33,6 +39,7 @@
     <micrometer-bom.version>1.15.12</micrometer-bom.version>
     <spring-framework-bom.version>6.2.19</spring-framework-bom.version>
     <postgresql.override.version>42.7.14</postgresql.override.version>
+    <archunit.version>1.4.0</archunit.version>
   </properties>
 
   <dependencyManagement>
@@ -82,7 +89,7 @@
       </dependency>
       <dependency>
         <groupId>com.adrianrevilla.trading</groupId>
-        <artifactId>trading-backtest</artifactId>
+        <artifactId>trading-strategies</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
@@ -92,18 +99,74 @@
       </dependency>
       <dependency>
         <groupId>com.adrianrevilla.trading</groupId>
-        <artifactId>trading-broker-sim</artifactId>
-        <version>${project.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>com.adrianrevilla.trading</groupId>
-        <artifactId>trading-strategies</artifactId>
+        <artifactId>trading-backtest</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
         <groupId>com.adrianrevilla.trading</groupId>
         <artifactId>trading-execution</artifactId>
         <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.adrianrevilla.trading</groupId>
+        <artifactId>trading-arena</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.adrianrevilla.trading</groupId>
+        <artifactId>trading-tax</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.adrianrevilla.trading</groupId>
+        <artifactId>trading-broker-sim</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.adrianrevilla.trading</groupId>
+        <artifactId>trading-broker-etoro</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.adrianrevilla.trading</groupId>
+        <artifactId>trading-application</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.adrianrevilla.trading</groupId>
+        <artifactId>trading-adapter-persistence</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.adrianrevilla.trading</groupId>
+        <artifactId>trading-adapter-marketdata</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.adrianrevilla.trading</groupId>
+        <artifactId>trading-adapter-notification</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.adrianrevilla.trading</groupId>
+        <artifactId>trading-adapter-web</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.adrianrevilla.trading</groupId>
+        <artifactId>trading-adapter-metrics</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.adrianrevilla.trading</groupId>
+        <artifactId>trading-app</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.tngtech.archunit</groupId>
+        <artifactId>archunit-junit5</artifactId>
+        <version>${archunit.version}</version>
+        <scope>test</scope>
       </dependency>
     </dependencies>
   </dependencyManagement>

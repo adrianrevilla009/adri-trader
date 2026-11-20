@@ -2,9 +2,14 @@ package com.adrianrevilla.trading.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.adrianrevilla.trading.core.Alerter;
-import com.adrianrevilla.trading.core.KillSwitch;
-import com.adrianrevilla.trading.execution.OrderRepository;
+import com.adrianrevilla.trading.adapter.in.web.KillSwitchServer;
+import com.adrianrevilla.trading.adapter.out.notification.LoggingAlerter;
+import com.adrianrevilla.trading.adapter.out.persistence.JdbcKillSwitch;
+import com.adrianrevilla.trading.adapter.out.persistence.JdbcOrderRepository;
+import com.adrianrevilla.trading.app.config.DataConfig;
+import com.adrianrevilla.trading.core.application.port.out.Alerter;
+import com.adrianrevilla.trading.core.domain.KillSwitch;
+import com.adrianrevilla.trading.execution.application.port.out.OrderRepository;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;

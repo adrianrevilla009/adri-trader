@@ -11,9 +11,8 @@
   <name>trading-backtest</name>
   <description>Backtest engine, cost model, validation, reports</description>
   <dependencies>
-    <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-core</artifactId></dependency>
-    <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-data</artifactId></dependency>
     <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-broker-sim</artifactId></dependency>
+    <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-core</artifactId></dependency>
     <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-strategies</artifactId><scope>test</scope></dependency>
   </dependencies>
 </project>

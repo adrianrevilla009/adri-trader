@@ -1,0 +1,27 @@
+package com.adrianrevilla.trading.backtest.domain;
+
+import com.adrianrevilla.trading.core.domain.Isin;
+import com.adrianrevilla.trading.core.domain.TargetPortfolio;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
+
+public record BacktestResult(String strategyId, List<EquityPoint> equity, List<Trade> trades,
+        List<Decision> decisions) {
+
+    public BacktestResult(String strategyId, List<EquityPoint> equity, List<Trade> trades) {
+        this(strategyId, equity, trades, List.of());
+    }
+
+    /** Value at the close of {@code date}; {@code invested} is the part held in instruments. */
+    public record EquityPoint(LocalDate date, BigDecimal equity, BigDecimal invested) {}
+
+    public enum Side { BUY, SELL }
+
+    /** {@code costEur} is the spread plus slippage paid versus the open price. */
+    public record Trade(LocalDate date, Isin isin, Side side, BigDecimal quantity, BigDecimal price,
+            BigDecimal amountEur, BigDecimal costEur) {}
+
+    /** What the strategy asked for at the close of {@code date}, before any risk adjustment. */
+    public record Decision(LocalDate date, TargetPortfolio target) {}
+}

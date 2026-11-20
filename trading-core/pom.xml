@@ -10,5 +10,4 @@
   <artifactId>trading-core</artifactId>
   <name>trading-core</name>
   <description>Domain model and interfaces: Strategy, Broker, RiskRule, MarketSnapshot</description>
-
 </project>
