@@ -66,6 +66,8 @@ public class BarRepository {
     /** Replaces the clean series of the instrument atomically. */
     public void replaceClean(long instrumentId, List<Bar> bars) {
         tx.executeWithoutResult(status -> {
+            // serialize writers of the same instrument: a second concurrent replace waits and then sees the committed rows
+            jdbc.queryForList("SELECT id FROM instrument WHERE id = ? FOR UPDATE", Long.class, instrumentId);
             jdbc.update("DELETE FROM bar_daily WHERE instrument_id = ?", instrumentId);
             jdbc.batchUpdate("""
                     INSERT INTO bar_daily(instrument_id, bar_date, open, high, low, close, volume, available_on)

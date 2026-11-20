@@ -24,9 +24,12 @@ public class JdbcOrderRepository implements OrderRepository {
             FROM trade_order o JOIN instrument i ON i.id = o.instrument_id""";
 
     private final JdbcTemplate jdbc;
+    private final org.springframework.transaction.support.TransactionTemplate tx;
 
     public JdbcOrderRepository(DataSource dataSource) {
         this.jdbc = new JdbcTemplate(dataSource);
+        this.tx = new org.springframework.transaction.support.TransactionTemplate(
+                new org.springframework.jdbc.datasource.DataSourceTransactionManager(dataSource));
     }
 
     @Override
@@ -48,7 +51,12 @@ public class JdbcOrderRepository implements OrderRepository {
     public void updateState(UUID id, OrderState state, String note) {
         OrderRecord current = find(id).orElseThrow(() -> new IllegalArgumentException("Unknown order " + id));
         OrderStateMachine.require(current.state(), state);
-        jdbc.update("UPDATE trade_order SET state = ?, note = ? WHERE id = ?", state.name(), note, id);
+        // compare-and-set: if another thread moved the order meanwhile, nothing is overwritten
+        int n = jdbc.update("UPDATE trade_order SET state = ?, note = ? WHERE id = ? AND state = ?", state.name(), note, id,
+                current.state().name());
+        if (n == 0) {
+            throw new IllegalStateException("Order " + id + " changed state concurrently; not overwritten");
+        }
     }
 
     @Override
@@ -73,6 +81,23 @@ public class JdbcOrderRepository implements OrderRepository {
     public void recordFill(UUID orderId, BigDecimal quantity, BigDecimal price, BigDecimal amountEur) {
         jdbc.update("INSERT INTO fill(id, order_id, quantity, price, amount_eur, filled_at) VALUES (?,?,?,?,?, now())",
                 UUID.randomUUID(), orderId, quantity, price, amountEur);
+    }
+
+    @Override
+    public boolean recordFillUpTo(UUID orderId, BigDecimal brokerFilledTotalEur, BigDecimal averagePrice) {
+        Boolean recorded = tx.execute(status -> {
+            // the row lock serializes every writer of this order, so the delta below cannot be counted twice
+            jdbc.queryForList("SELECT id FROM trade_order WHERE id = ? FOR UPDATE", UUID.class, orderId);
+            BigDecimal delta = brokerFilledTotalEur.subtract(recordedFillAmount(orderId));
+            if (delta.signum() <= 0) {
+                return false;
+            }
+            BigDecimal qty = averagePrice != null && averagePrice.signum() > 0
+                    ? delta.divide(averagePrice, java.math.MathContext.DECIMAL128) : BigDecimal.ZERO;
+            recordFill(orderId, qty, averagePrice, delta);
+            return true;
+        });
+        return Boolean.TRUE.equals(recorded);
     }
 
     @Override
