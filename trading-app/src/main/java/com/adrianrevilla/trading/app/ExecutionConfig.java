@@ -34,6 +34,29 @@ public class ExecutionConfig {
         return new KillSwitchServer(killSwitch, token, port, alerter);
     }
 
+    /** Only when the Telegram token and chat are configured. Polls every few seconds. */
+    @Bean
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnExpression(
+            "!'${trading.telegram.bot-token:}'.isEmpty() && !'${trading.telegram.chat-id:}'.isEmpty()")
+    TelegramCommands telegramCommands(KillSwitch killSwitch, Alerter alerter,
+            @Value("${trading.telegram.bot-token}") String token, @Value("${trading.telegram.chat-id}") String chatId,
+            @Value("${trading.telegram.base-url:https://api.telegram.org}") String baseUrl) {
+        return new TelegramCommands(new TelegramCommandListener(baseUrl, token, chatId, killSwitch, alerter));
+    }
+
+    public static class TelegramCommands {
+        private final TelegramCommandListener listener;
+
+        TelegramCommands(TelegramCommandListener listener) {
+            this.listener = listener;
+        }
+
+        @org.springframework.scheduling.annotation.Scheduled(fixedDelayString = "${trading.telegram.poll-ms:5000}")
+        public void poll() {
+            listener.pollOnce();
+        }
+    }
+
     @Bean
     OrderRepository orderRepository(DataSource dataSource) {
         return new JdbcOrderRepository(dataSource);
