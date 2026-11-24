@@ -8,7 +8,7 @@ COPY . .
 RUN --mount=type=cache,target=/root/.m2 mvn -B -q -DskipTests -Djacoco.skip=true -pl trading-app -am package \
     && cp trading-app/target/trading-app-*.jar /app.jar
 
-FROM eclipse-temurin:21-jre-alpine@sha256:ac05c3c42b7c2f1a52c9bd52f01041fa1958231b15ebeae7420429cbc5baf474
+FROM eclipse-temurin:21-jre-alpine@sha256:5d7689f47d670aca766b9503a70bccc2d73b4eb9221ae8f714ae958313c4ce70
 # Pick up fixed Alpine packages published after the pinned base digest (keeps the vulnerability gate green).
 RUN apk upgrade --no-cache
 # Unprivileged user; nothing is written outside /app/reports.
