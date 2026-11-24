@@ -14,3 +14,8 @@
 - Cambio: `Dockerfile`, se añade `apk upgrade` a la imagen final.
 - Por qué: apareció una vulnerabilidad nueva (libfontenc, HIGH) en la imagen base y el CI se ponía en rojo.
 - Cómo comprobarlo: en el PR 51 el trabajo "Image" y el "CI gate" salen en verde.
+
+4.
+- Cambio: `ops/tempo/tempo.yml`, se quita el bloque `compactor` (Tempo 3 ya no lo acepta).
+- Por qué: con Tempo 3 el contenedor no arrancaba y no se guardaban trazas. La retención de 14 días ya es el valor por defecto, pero no está comprobado en una instancia real.
+- Cómo comprobarlo: en el PR 45 el trabajo "Whole stack" y el "CI gate" salen en verde.
