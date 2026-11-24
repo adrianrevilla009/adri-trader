@@ -46,7 +46,13 @@ wait_for "Alertmanager received the heartbeat" 120 am_has_heartbeat
 dashboard() { curl -fs -u "admin:$GRAFANA_PASSWORD" 'http://127.0.0.1:3000/api/dashboards/uid/trading-overview' | grep -q 'Trading overview'; }
 wait_for "Grafana has the dashboard" 120 dashboard
 
-traces() { "${COMPOSE[@]}" exec -T tempo wget -qO- 'http://localhost:3200/api/search?limit=1' </dev/null | grep -q traceID; }
+# Explicit time range (last hour). The search without one found no traces on Tempo 2.10 and 3.1 (PR #58); the cause
+# was not confirmed, so this is an attempt: if CI on those versions still fails, the problem is somewhere else.
+traces() {
+    local now; now=$(date +%s)
+    "${COMPOSE[@]}" exec -T tempo wget -qO- "http://localhost:3200/api/search?limit=1&start=$((now - 3600))&end=$((now + 60))" \
+        </dev/null | grep -q traceID
+}
 wait_for "Tempo received traces" 180 traces
 
 # the database must not be reachable from outside the compose network
