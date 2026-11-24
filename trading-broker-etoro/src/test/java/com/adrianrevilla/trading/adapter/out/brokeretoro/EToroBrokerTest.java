@@ -130,22 +130,123 @@ class EToroBrokerTest {
         assertThat(refStore.get(order.internalId())).isEqualTo("E-1");
     }
 
-    @Test
-    void realOrderRunsThePreflightFirstAndAbortsIfItIsNotARealAsset() {
-        on("POST /api/v2/trading/execution/estimate", Reply.ok("{\"settlementType\":\"cfd\"}"));
-        on("POST /api/v2/trading/execution/orders", Reply.ok("{\"orderId\":\"E-1\"}"));
-        assertThatThrownBy(() -> broker(EToroConfig.Mode.REAL).submit(buy()))
-                .isInstanceOf(BrokerRejectedException.class).hasMessageContaining("not a real asset");
-        assertThat(seen).noneMatch(s -> s.path().endsWith("/execution/orders")); // the order was never sent
+    // Eligibility and costs shapes below were verified on 2026-11-24 against the real API (read-only queries).
+    private static final String ELIGIBILITY = "POST /api/v2/trading/info/eligibility";
+    private static final String COSTS = "POST /api/v2/trading/info/costs";
+    private static final String REAL_ORDERS = "POST /api/v2/trading/execution/orders";
+    private static final String COSTS_OK = "{\"instrumentId\":1001,\"costs\":[{\"costType\":\"marketSpread\","
+            + "\"value\":0.1,\"currency\":\"USD\"}]}";
+
+    private static String eligibility(String settlement, boolean allowOpen, boolean allowClose, String min) {
+        return "{\"eligibilities\":[{\"instrumentId\":1001,\"minPositionExposure\":" + min
+                + ",\"allowOpenPosition\":" + allowOpen + ",\"allowClosePosition\":" + allowClose
+                + ",\"leverageConfigs\":[{\"settlementType\":\"" + settlement + "\",\"direction\":\"long\"}]}],"
+                + "\"notFoundInstrumentIds\":[]}";
+    }
+
+    private static OrderRequest sell() {
+        return new OrderRequest(UUID.randomUUID(), "agent", ISIN, OrderRequest.Side.SELL, new BigDecimal("25.50"), null);
+    }
+
+    private void assertOrderNeverSent() {
+        assertThat(seen).noneMatch(s -> s.path().endsWith("/execution/orders"));
     }
 
     @Test
-    void realOrderIsSentAfterAPositivePreflight() throws Exception {
-        on("POST /api/v2/trading/execution/estimate", Reply.ok("{\"settlementType\":\"real\"}"));
-        on("POST /api/v2/trading/execution/orders", Reply.ok("{\"orderId\":\"E-9\"}"));
+    void realOrderAbortsIfTheInstrumentOnlyTradesAsCfd() {
+        on(ELIGIBILITY, Reply.ok(eligibility("cfd", true, true, "10")));
+        on(REAL_ORDERS, Reply.ok("{\"orderId\":\"E-1\"}"));
+        assertThatThrownBy(() -> broker(EToroConfig.Mode.REAL).submit(buy()))
+                .isInstanceOf(BrokerRejectedException.class).hasMessageContaining("no real-asset");
+        assertOrderNeverSent();
+    }
+
+    @Test
+    void realOrderIsSentAfterEligibilityAndCostsPass() throws Exception {
+        on(ELIGIBILITY, Reply.ok(eligibility("real", true, true, "10")));
+        on(COSTS, Reply.ok(COSTS_OK));
+        on(REAL_ORDERS, Reply.ok("{\"orderId\":\"E-9\"}"));
         broker(EToroConfig.Mode.REAL).submit(buy());
-        assertThat(seen).extracting(Seen::path).containsExactly("/api/v2/trading/execution/estimate",
+        assertThat(seen).extracting(Seen::path).containsExactly("/api/v2/trading/info/eligibility",
+                "/api/v2/trading/info/costs", "/api/v2/trading/execution/orders");
+        assertThat(seen.get(0).body()).contains("\"instrumentIds\":[1001]", "\"currency\":\"USD\"");
+        assertThat(seen.get(1).body()).contains("\"action\":\"open\"", "\"transaction\":\"buy\"",
+                "\"instrumentId\":1001", "\"settlementType\":\"real\"", "\"orderType\":\"mkt\"", "\"leverage\":1",
+                "\"amount\":25.50", "\"orderCurrency\":\"usd\"");
+    }
+
+    @Test
+    void realOrderAbortsIfEtoroDoesNotKnowTheInstrument() {
+        on(ELIGIBILITY, Reply.ok("{\"eligibilities\":[],\"notFoundInstrumentIds\":[1001]}"));
+        assertThatThrownBy(() -> broker(EToroConfig.Mode.REAL).submit(buy()))
+                .isInstanceOf(BrokerRejectedException.class).hasMessageContaining("not eligible");
+        assertOrderNeverSent();
+    }
+
+    @Test
+    void realOrderAbortsIfOpeningPositionsIsNotAllowed() {
+        on(ELIGIBILITY, Reply.ok(eligibility("real", false, true, "10")));
+        assertThatThrownBy(() -> broker(EToroConfig.Mode.REAL).submit(buy()))
+                .isInstanceOf(BrokerRejectedException.class).hasMessageContaining("opening");
+        assertOrderNeverSent();
+    }
+
+    @Test
+    void realOrderAbortsBelowTheMinimumPositionExposure() {
+        on(ELIGIBILITY, Reply.ok(eligibility("real", true, true, "30")));
+        assertThatThrownBy(() -> broker(EToroConfig.Mode.REAL).submit(buy()))
+                .isInstanceOf(BrokerRejectedException.class).hasMessageContaining("minimum");
+        assertOrderNeverSent();
+    }
+
+    @Test
+    void realOrderAbortsIfTheCostEstimateHasNoCosts() {
+        on(ELIGIBILITY, Reply.ok(eligibility("real", true, true, "10")));
+        on(COSTS, Reply.ok("{\"instrumentId\":1001}"));
+        assertThatThrownBy(() -> broker(EToroConfig.Mode.REAL).submit(buy()))
+                .isInstanceOf(BrokerRejectedException.class).hasMessageContaining("costs");
+        assertOrderNeverSent();
+    }
+
+    @Test
+    void realOrderAbortsIfThePreflightCallIsRejected() {
+        on(ELIGIBILITY, new Reply(400, "bad request", Map.of(), 0));
+        assertThatThrownBy(() -> broker(EToroConfig.Mode.REAL).submit(buy()))
+                .isInstanceOf(BrokerRejectedException.class).hasMessageContaining("preflight failed");
+        assertOrderNeverSent();
+    }
+
+    @Test
+    void realOrderAbortsIfTheEligibilityResponseIsMalformed() {
+        on(ELIGIBILITY, Reply.ok("not json"));
+        assertThatThrownBy(() -> broker(EToroConfig.Mode.REAL).submit(buy()))
+                .isInstanceOf(BrokerRejectedException.class).hasMessageContaining("unreadable");
+        assertOrderNeverSent();
+    }
+
+    @Test
+    void deniedKeyInThePreflightIsReportedAsAccessDenied() {
+        on(ELIGIBILITY, Reply.status(401));
+        assertThatThrownBy(() -> broker(EToroConfig.Mode.REAL).submit(buy()))
+                .isInstanceOf(BrokerAccessDeniedException.class);
+    }
+
+    @Test
+    void realSellChecksEligibilityButSkipsTheCostEstimate() throws Exception {
+        // the costs endpoint rejects 'sell' (only opening is supported), so selling must not depend on it
+        on(ELIGIBILITY, Reply.ok(eligibility("real", false, true, "10")));
+        on(REAL_ORDERS, Reply.ok("{\"orderId\":\"E-5\"}"));
+        broker(EToroConfig.Mode.REAL).submit(sell());
+        assertThat(seen).extracting(Seen::path).containsExactly("/api/v2/trading/info/eligibility",
                 "/api/v2/trading/execution/orders");
+    }
+
+    @Test
+    void realSellAbortsIfClosingPositionsIsNotAllowed() {
+        on(ELIGIBILITY, Reply.ok(eligibility("real", true, false, "10")));
+        assertThatThrownBy(() -> broker(EToroConfig.Mode.REAL).submit(sell()))
+                .isInstanceOf(BrokerRejectedException.class).hasMessageContaining("closing");
+        assertOrderNeverSent();
     }
 
     @Test
