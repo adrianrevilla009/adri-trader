@@ -17,7 +17,7 @@ El cliente `EToroBroker` está construido y probado contra un servidor local, si
 | 2 | Forma de la respuesta de una orden (`orderId`) | `EToroBroker.submit` | Cambiar el parseo |
 | 3 | Ruta y respuesta del coste estimado (what-if) y que informe del tipo de liquidación | `Endpoints.estimate`, `EToroBroker.preflight` | Sin esta comprobación no se envían órdenes reales |
 | 4 | Ruta y forma de la consulta de una orden y sus estados | `Endpoints.orderStatus`, `EToroBroker.state` | Ajustar el mapa de estados |
-| 5 | Ruta y forma de cartera y efectivo (`positions`, `cash`) | `Endpoints.portfolio`, `EToroBroker.positions` | Ajustar el parseo |
+| 5 | Ruta y forma de cartera y efectivo. **Verificado en parte (2026-11-23, clave real de solo lectura):** ruta `/api/v1/trading/info/{env}/pnl` y saldo en `clientPortfolio.credit`, **en USD**. **No comprobado:** los campos de cada posición (`positions`) y la conversión a EUR | `Endpoints.portfolio`, `EToroBroker.cash`, `EToroBroker.positions` | Ajustar el parseo; decidir la moneda con un ADR |
 | 6 | Cancelación de una orden (`DELETE` sobre la ruta de órdenes) | `EToroBroker.cancel` | Ajustar método y ruta |
 | 7 | Si la API devuelve un identificador de orden que se pueda enlazar con el id interno cuando se pierde la respuesta | `BrokerRefStore`, `EToroBroker.lookup` | Sin enlace, una respuesta perdida detiene la operativa (comportamiento seguro) |
 | 8 | Que verificar la cuenta y generar la clave demo no exijan depósito | cuenta | Si falla, revisar ADR-0006 |
