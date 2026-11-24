@@ -40,7 +40,7 @@
     <spring-framework-bom.version>6.2.19</spring-framework-bom.version>
     <postgresql.override.version>42.7.14</postgresql.override.version>
     <archunit.version>1.4.0</archunit.version>
-    <maven-enforcer-plugin.version>3.5.0</maven-enforcer-plugin.version>
+    <maven-enforcer-plugin.version>3.7.0</maven-enforcer-plugin.version>
   </properties>
 
   <dependencyManagement>
