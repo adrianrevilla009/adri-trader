@@ -186,8 +186,8 @@ class EToroBrokerTest {
 
     @Test
     void readsAreRetriedWithGrowingWaitUntilTheyWork() throws Exception {
-        on("GET /api/v1/trading/portfolio", Reply.status(500), Reply.status(503),
-                Reply.ok("{\"cash\":75.5,\"positions\":[{\"instrumentId\":1001,\"units\":2.5}]}"));
+        on("GET /api/v1/trading/info/demo/pnl", Reply.status(500), Reply.status(503),
+                Reply.ok("{\"clientPortfolio\":{\"credit\":75.5,\"positions\":[{\"instrumentId\":1001,\"units\":2.5}]}}"));
         var b = broker(EToroConfig.Mode.DEMO);
         assertThat(b.cash()).isEqualByComparingTo("75.5");
         assertThat(sleeps).containsExactly(1000L, 2000L);
@@ -196,14 +196,31 @@ class EToroBrokerTest {
 
     @Test
     void readFailsAfterTheMaximumNumberOfAttempts() {
-        on("GET /api/v1/trading/portfolio", Reply.status(500));
+        on("GET /api/v1/trading/info/demo/pnl", Reply.status(500));
         assertThatThrownBy(() -> broker(EToroConfig.Mode.DEMO).cash()).isInstanceOf(BrokerUnavailableException.class);
         assertThat(seen).hasSize(3);
     }
 
     @Test
+    void realModeReadsThePortfolioFromTheRealEndpoint() throws Exception {
+        on("GET /api/v1/trading/info/real/pnl", Reply.ok("{\"clientPortfolio\":{\"credit\":10,\"positions\":[]}}"));
+        assertThat(broker(EToroConfig.Mode.REAL).cash()).isEqualByComparingTo("10");
+    }
+
+    @Test
+    void portfolioWithoutClientPortfolioOrCreditIsAnError() {
+        on("GET /api/v1/trading/info/demo/pnl", Reply.ok("{\"cash\":75.5}"));
+        assertThatThrownBy(() -> broker(EToroConfig.Mode.DEMO).cash())
+                .isInstanceOf(BrokerUnavailableException.class).hasMessageContaining("clientPortfolio");
+        on("GET /api/v1/trading/info/demo/pnl", Reply.ok("{\"clientPortfolio\":{\"positions\":[]}}"));
+        assertThatThrownBy(() -> broker(EToroConfig.Mode.DEMO).cash())
+                .isInstanceOf(BrokerUnavailableException.class).hasMessageContaining("credit");
+    }
+
+    @Test
     void unknownInstrumentAtTheBrokerIsNotSilentlyIgnored() {
-        on("GET /api/v1/trading/portfolio", Reply.ok("{\"cash\":1,\"positions\":[{\"instrumentId\":9,\"units\":1}]}"));
+        on("GET /api/v1/trading/info/demo/pnl",
+                Reply.ok("{\"clientPortfolio\":{\"credit\":1,\"positions\":[{\"instrumentId\":9,\"units\":1}]}}"));
         assertThatThrownBy(() -> broker(EToroConfig.Mode.DEMO).positions())
                 .isInstanceOf(BrokerUnavailableException.class).hasMessageContaining("unknown instrument");
     }

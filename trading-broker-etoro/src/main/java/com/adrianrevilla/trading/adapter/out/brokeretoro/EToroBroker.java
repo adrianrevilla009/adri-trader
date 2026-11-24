@@ -194,14 +194,30 @@ public final class EToroBroker implements Broker {
         return out;
     }
 
+    /**
+     * Available trading balance: {@code clientPortfolio.credit}. LIMITATION: eToro reports it in USD
+     * ({@code accountCurrencyId} 1), while this project reasons in EUR. No conversion is done here, so the caller
+     * must not treat this number as euros until the currency decision is made.
+     */
     @Override
     public BigDecimal cash() throws BrokerException {
-        return portfolio().path("cash").decimalValue();
+        JsonNode credit = portfolio().path("credit");
+        if (!credit.isNumber()) {
+            throw new BrokerUnavailableException("portfolio response has no numeric clientPortfolio.credit");
+        }
+        return credit.decimalValue();
     }
 
+    /** The {@code clientPortfolio} object of the pnl endpoint (shape verified; position item fields are not). */
     private JsonNode portfolio() throws BrokerException {
+        String env = config.mode() == EToroConfig.Mode.REAL ? "real" : "demo";
+        String path = config.endpoints().portfolio().replace("{env}", env);
         try {
-            return json.readTree(read(config.endpoints().portfolio()).body());
+            JsonNode portfolio = json.readTree(read(path).body()).path("clientPortfolio");
+            if (!portfolio.isObject()) {
+                throw new BrokerUnavailableException("portfolio response has no clientPortfolio object");
+            }
+            return portfolio;
         } catch (IOException e) {
             throw new BrokerUnavailableException("portfolio unreadable", e);
         }

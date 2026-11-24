@@ -24,7 +24,7 @@ public record EToroConfig(String baseUrl, String apiKey, String userKey, Mode mo
                     "/api/v2/trading/execution/orders",
                     "/api/v2/trading/execution/orders/{id}",   // unverified
                     "/api/v2/trading/execution/estimate",      // unverified (what-if cost endpoint)
-                    "/api/v1/trading/portfolio");              // unverified
+                    "/api/v1/trading/info/{env}/pnl");         // verified 2026-11-23 with a read-only real key (env = demo|real)
         }
     }
 }
