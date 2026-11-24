@@ -133,7 +133,7 @@ services:
   otel-collector:
     <<: *hardening
     profiles: [observability]
-    image: otel/opentelemetry-collector:0.130.0@sha256:0c066d4388070dad8dc9961d9f23649e85a226620e6b359334e4a6c7f9d73b23
+    image: otel/opentelemetry-collector:0.165.0@sha256:34b24b740c3c88d3467740e8642a397c13898ef76d7295c5425164c482ed1b73
     command: ["--config=/etc/otel/collector.yml"]
     volumes:
       - ./ops/otel/collector.yml:/etc/otel/collector.yml:ro
