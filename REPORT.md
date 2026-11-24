@@ -34,3 +34,8 @@
 - Cambio: `docs/fase0-verificacion-etoro.md`, filas 3, 4, 6, 10 y 11.
 - Por qué: se probó con solo consultas (sin órdenes) y se descubrió que los 3 ETF son activos reales (no CFD), que el mínimo es 10 USD y que la ruta del coste estimado del código es incorrecta.
 - Cómo comprobarlo: leer esas filas. Ninguna orden se envió; el código del bot todavía no se ha corregido.
+
+8.
+- Cambio: `scripts/smoke-stack.sh`, la comprobación de trazas en Tempo ahora pide un rango de tiempo (última hora).
+- Por qué: con Tempo 2.10 y 3.1 la búsqueda sin rango no encontraba trazas y el CI fallaba. Es una prueba: la causa no está confirmada.
+- Cómo comprobarlo: el PR 58 (Tempo 2.10) con esta corrección debe pasar el trabajo "Whole stack". Con Tempo 2.8 pasa igual.
