@@ -39,3 +39,8 @@
 - Cambio: `scripts/smoke-stack.sh`, la comprobación de trazas en Tempo ahora pide un rango de tiempo (última hora).
 - Por qué: con Tempo 2.10 y 3.1 la búsqueda sin rango no encontraba trazas y el CI fallaba. Es una prueba: la causa no está confirmada.
 - Cómo comprobarlo: el PR 58 (Tempo 2.10) con esta corrección debe pasar el trabajo "Whole stack". Con Tempo 2.8 pasa igual.
+
+9.
+- Cambio: `EToroBroker.preflight` y `EToroConfig` (rutas nuevas de elegibilidad y coste), y `EToroBrokerTest`.
+- Por qué: la comprobación antigua usaba una ruta que no existe y habría rechazado todas las órdenes reales. Ahora se comprueba que el ETF es un activo real, que se puede abrir o cerrar, el mínimo y el coste estimado.
+- Cómo comprobarlo: `mvn -pl trading-broker-etoro -am test -Dtest=EToroBrokerTest` → 25 tests, 0 fallos. Solo se probaron consultas contra eToro; no se envió ninguna orden.
