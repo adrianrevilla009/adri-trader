@@ -19,3 +19,8 @@
 - Cambio: `.github/dependabot.yml`, Dependabot ignora las subidas de versión mayor de `grafana/tempo`.
 - Por qué: Tempo 3 necesita migrar su configuración y la pila completa falla con él (PR 45), así que no debe volver a proponerse hasta migrarlo.
 - Cómo comprobarlo: el PR pasa el "CI gate"; Dependabot deja de abrir PR de Tempo 3.
+
+5.
+- Cambio: `scripts/check-ops.sh`, versiones y digests de Prometheus y Alertmanager.
+- Por qué: el script validaba las alertas con versiones viejas (v3.5.0 y v0.28.1) mientras el compose ya usa v3.16.0 y v0.35.0.
+- Cómo comprobarlo: el trabajo "Operations config" del CI valida las alertas con las versiones nuevas y sale en verde.
