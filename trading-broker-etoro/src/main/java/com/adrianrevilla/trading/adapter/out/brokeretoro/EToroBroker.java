@@ -34,11 +34,12 @@ import java.util.UUID;
  * <p>Guarantees implemented here and tested against a local server: headers x-api-key, x-user-key and
  * x-request-id (the internal order id) on every call; own rate limits (60 reads, 20 writes per minute and key);
  * 429 handled by waiting Retry-After; reads retried with growing wait; a write is never retried after an unknown
- * outcome; orders always by amount, leverage 1 and settlementType real; before a REAL order the estimated-cost
- * (what-if) call must confirm it is a real asset, otherwise nothing is sent.
+ * outcome; orders always by amount, leverage 1 and settlementType real; before a REAL order the eligibility and
+ * cost-estimate queries must pass (see {@link #preflight}), otherwise nothing is sent.
  *
- * <p>NOT VERIFIED against the real API: the JSON shapes of requests and responses and the non-order paths (see
- * {@link EToroConfig.Endpoints}). They are isolated in this class and must be confirmed in phase 0 with the demo key.
+ * <p>Verified against the real API (read-only, 2026-11-24): portfolio, eligibility and cost estimate. NOT VERIFIED:
+ * the order create, status and cancel paths and JSON shapes (see {@link EToroConfig.Endpoints}); they are isolated in
+ * this class and must be confirmed in phase 0 with a demo key that can write.
  */
 public final class EToroBroker implements Broker {
     private static final int MAX_READ_ATTEMPTS = 3;
@@ -77,7 +78,7 @@ public final class EToroBroker implements Broker {
                 .orElseThrow(() -> new BrokerRejectedException("no eToro id for " + order.isin().value()));
         String body = orderBody(order, instrumentId);
         if (config.mode() == EToroConfig.Mode.REAL) {
-            preflight(order, body);
+            preflight(order, instrumentId);
         }
         String path = config.mode() == EToroConfig.Mode.REAL
                 ? config.endpoints().ordersReal() : config.endpoints().ordersDemo();
@@ -107,22 +108,81 @@ public final class EToroBroker implements Broker {
         return n.toString();
     }
 
-    /** What-if check: abort unless eToro confirms the order would settle as a real asset. */
-    private void preflight(OrderRequest order, String body) throws BrokerException {
+    /**
+     * Pre-trade check, nothing is sent unless it passes. Eligibility (verified 2026-11-24) must show a real-asset
+     * long configuration, an open (BUY) or close (SELL) permission and, for a BUY, an amount of at least the minimum
+     * exposure. A BUY also needs a cost estimate with a costs list. The costs endpoint only supports opening, so a
+     * SELL skips it. Both calls only query: neither creates an order. LIMITATION: eToro states amounts and minimums
+     * in USD; the EUR amount is compared as a plain number (see {@link #cash()}).
+     */
+    private void preflight(OrderRequest order, long instrumentId) throws BrokerException {
+        boolean buy = order.side() == OrderRequest.Side.BUY;
+        JsonNode item = eligibilityOf(instrumentId, order);
+        boolean realLong = false;
+        for (JsonNode c : item.path("leverageConfigs")) {
+            realLong |= "real".equalsIgnoreCase(c.path("settlementType").asText())
+                    && "long".equalsIgnoreCase(c.path("direction").asText());
+        }
+        if (!realLong) {
+            throw new BrokerRejectedException(order.isin().value() + " has no real-asset (long) configuration at eToro,"
+                    + " order not sent");
+        }
+        if (!item.path(buy ? "allowOpenPosition" : "allowClosePosition").asBoolean(false)) {
+            throw new BrokerRejectedException("eToro does not allow " + (buy ? "opening" : "closing") + " positions in "
+                    + order.isin().value() + ", order not sent");
+        }
+        if (!buy) {
+            return;
+        }
+        JsonNode min = item.path("minPositionExposure");
+        if (min.isNumber() && order.amountEur().compareTo(min.decimalValue()) < 0) {
+            throw new BrokerRejectedException("amount " + order.amountEur() + " is below the minimum position exposure "
+                    + min.decimalValue() + " of " + order.isin().value() + ", order not sent");
+        }
+        requireCosts(order, instrumentId);
+    }
+
+    private JsonNode eligibilityOf(long instrumentId, OrderRequest order) throws BrokerException {
+        ObjectNode body = JsonNodeFactory.instance.objectNode();
+        body.putArray("instrumentIds").add(instrumentId);
+        body.put("currency", "USD");   // the only currency eToro accepts
+        JsonNode root = queryForPreflight(config.endpoints().eligibility(), body.toString());
+        for (JsonNode e : root.path("eligibilities")) {
+            if (e.path("instrumentId").asLong(-1) == instrumentId) {
+                return e;
+            }
+        }
+        throw new BrokerRejectedException(order.isin().value() + " is not eligible for trading at eToro, order not sent");
+    }
+
+    private void requireCosts(OrderRequest order, long instrumentId) throws BrokerException {
+        ObjectNode n = new ObjectMapper().setNodeFactory(JsonNodeFactory.withExactBigDecimals(true)).createObjectNode();
+        n.put("action", "open");
+        n.put("transaction", "buy");
+        n.put("instrumentId", instrumentId);
+        n.put("settlementType", "real");
+        n.put("orderType", "mkt");
+        n.put("leverage", 1);
+        n.put("amount", order.amountEur());
+        n.put("orderCurrency", "usd");
+        if (!queryForPreflight(config.endpoints().estimate(), n.toString()).path("costs").isArray()) {
+            throw new BrokerRejectedException("cost estimate for " + order.isin().value()
+                    + " has no costs list, order not sent");
+        }
+    }
+
+    /** POST that only queries. An access error is passed on; any other failure means the order is not sent. */
+    private JsonNode queryForPreflight(String path, String body) throws BrokerException {
         Response r;
         try {
-            r = write("POST", config.endpoints().estimate(), body, UUID.randomUUID());
+            r = write("POST", path, body, UUID.randomUUID());
         } catch (BrokerAccessDeniedException e) {
             throw e;
         } catch (BrokerException e) {
             throw new BrokerRejectedException("preflight failed, order not sent: " + e.getMessage());
         }
         try {
-            String settlement = json.readTree(r.body()).path("settlementType").asText("");
-            if (!"real".equalsIgnoreCase(settlement)) {
-                throw new BrokerRejectedException("estimate for " + order.isin().value()
-                        + " is not a real asset (settlementType=" + settlement + "), order not sent");
-            }
+            return json.readTree(r.body());
         } catch (IOException e) {
             throw new BrokerRejectedException("preflight response unreadable, order not sent");
         }

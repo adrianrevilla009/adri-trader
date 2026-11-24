@@ -16,14 +16,15 @@ public record EToroConfig(String baseUrl, String apiKey, String userKey, Mode mo
      * NOT VERIFIED: they are placeholders to be confirmed against the real API with the demo key in phase 0.
      */
     public record Endpoints(String ordersDemo, String ordersReal, String orderStatus, String estimate,
-            String portfolio) {
+            String eligibility, String portfolio) {
 
         public static Endpoints unverifiedDefaults() {
             return new Endpoints(
                     "/api/v2/trading/execution/demo/orders",
                     "/api/v2/trading/execution/orders",
                     "/api/v2/trading/execution/orders/{id}",   // unverified
-                    "/api/v2/trading/execution/estimate",      // unverified (what-if cost endpoint)
+                    "/api/v2/trading/info/costs",              // verified 2026-11-24 (what-if cost, query only)
+                    "/api/v2/trading/info/eligibility",        // verified 2026-11-24 (settlement types, minimum)
                     "/api/v1/trading/info/{env}/pnl");         // verified 2026-11-23 with a read-only real key (env = demo|real)
         }
     }
