@@ -44,3 +44,8 @@
 - Cambio: `EToroBroker.preflight` y `EToroConfig` (rutas nuevas de elegibilidad y coste), y `EToroBrokerTest`.
 - Por qué: la comprobación antigua usaba una ruta que no existe y habría rechazado todas las órdenes reales. Ahora se comprueba que el ETF es un activo real, que se puede abrir o cerrar, el mínimo y el coste estimado.
 - Cómo comprobarlo: `mvn -pl trading-broker-etoro -am test -Dtest=EToroBrokerTest` → 25 tests, 0 fallos. Solo se probaron consultas contra eToro; no se envió ninguna orden.
+
+10.
+- Cambio: `.github/dependabot.yml` (Dependabot ignora todas las versiones nuevas de `grafana/tempo`) y un comentario en `scripts/smoke-stack.sh`.
+- Por qué: Tempo 2.10 y 3.1 fallan la comprobación de trazas de la pila. Se probó dar un rango de tiempo a la búsqueda y no lo arregló; la causa no se conoce y hace falta Docker local para depurarla.
+- Cómo comprobarlo: el PR pasa el "CI gate"; Dependabot deja de abrir PR de Tempo y se cierra el PR 58.

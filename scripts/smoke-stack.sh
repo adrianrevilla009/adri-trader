@@ -46,8 +46,8 @@ wait_for "Alertmanager received the heartbeat" 120 am_has_heartbeat
 dashboard() { curl -fs -u "admin:$GRAFANA_PASSWORD" 'http://127.0.0.1:3000/api/dashboards/uid/trading-overview' | grep -q 'Trading overview'; }
 wait_for "Grafana has the dashboard" 120 dashboard
 
-# Explicit time range (last hour). The search without one found no traces on Tempo 2.10 and 3.1 (PR #58); the cause
-# was not confirmed, so this is an attempt: if CI on those versions still fails, the problem is somewhere else.
+# Explicit time range (last hour). It did NOT fix Tempo 2.10.10 (PR #58), which still finds no traces; the cause is
+# unknown and needs a local Docker to debug (see .github/dependabot.yml). The range is harmless, so it stays.
 traces() {
     local now; now=$(date +%s)
     "${COMPOSE[@]}" exec -T tempo wget -qO- "http://localhost:3200/api/search?limit=1&start=$((now - 3600))&end=$((now + 60))" \

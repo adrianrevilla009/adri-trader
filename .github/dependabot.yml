@@ -58,10 +58,10 @@ updates:
       # The database major is a migration, not a bump.
       - dependency-name: "postgres"
         update-types: ["version-update:semver-major"]
-      # Tempo 3 needs a config migration (no `compactor` block) and the smoke check "Tempo received traces"
-      # fails against it (PR #45). Migrate with a local Docker to debug, then remove this ignore.
+      # Every Tempo version after 2.8.1 fails the smoke check "Tempo received traces": 3.1.1 (PR #45, which also
+      # needs the `compactor` block removed) and 2.10.10 (PR #58, even with an explicit time range). Cause unknown.
+      # Debug with a local Docker (`make smoke`), then remove this ignore.
       - dependency-name: "grafana/tempo"
-        update-types: ["version-update:semver-major"]
     commit-message:
       prefix: "build(deps)"
 
