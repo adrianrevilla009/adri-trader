@@ -24,3 +24,13 @@
 - Cambio: `scripts/check-ops.sh`, versiones y digests de Prometheus y Alertmanager.
 - Por qué: el script validaba las alertas con versiones viejas (v3.5.0 y v0.28.1) mientras el compose ya usa v3.16.0 y v0.35.0.
 - Cómo comprobarlo: el trabajo "Operations config" del CI valida las alertas con las versiones nuevas y sale en verde.
+
+6.
+- Cambio: `docs/fase0-verificacion-etoro.md`, filas 5, 10 y 13.
+- Por qué: se probó la API de eToro solo con lectura. Se encontraron 3 ETF (ids 15348, 3275 y 2914) y las velas diarias solo llegan a 176 días, así que no sirven para el histórico de 10 años.
+- Cómo comprobarlo: leer esas filas; el programa de prueba solo hizo peticiones de lectura y no se envió ninguna orden.
+
+7.
+- Cambio: `docs/fase0-verificacion-etoro.md`, filas 3, 4, 6, 10 y 11.
+- Por qué: se probó con solo consultas (sin órdenes) y se descubrió que los 3 ETF son activos reales (no CFD), que el mínimo es 10 USD y que la ruta del coste estimado del código es incorrecta.
+- Cómo comprobarlo: leer esas filas. Ninguna orden se envió; el código del bot todavía no se ha corregido.
