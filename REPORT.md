@@ -14,3 +14,8 @@
 - Cambio: `Dockerfile`, se añade `apk upgrade` a la imagen final.
 - Por qué: apareció una vulnerabilidad nueva (libfontenc, HIGH) en la imagen base y el CI se ponía en rojo.
 - Cómo comprobarlo: en el PR 51 el trabajo "Image" y el "CI gate" salen en verde.
+
+4.
+- Cambio: `.github/dependabot.yml`, Dependabot ignora las subidas de versión mayor de `grafana/tempo`.
+- Por qué: Tempo 3 necesita migrar su configuración y la pila completa falla con él (PR 45), así que no debe volver a proponerse hasta migrarlo.
+- Cómo comprobarlo: el PR pasa el "CI gate"; Dependabot deja de abrir PR de Tempo 3.
