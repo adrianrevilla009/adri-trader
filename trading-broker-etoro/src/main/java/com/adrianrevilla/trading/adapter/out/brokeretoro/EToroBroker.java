@@ -19,11 +19,15 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -37,11 +41,16 @@ import java.util.UUID;
  * outcome; orders always by amount, leverage 1 and settlementType real; before a REAL order the eligibility and
  * cost-estimate queries must pass (see {@link #preflight}), otherwise nothing is sent.
  *
- * <p>Verified against the real API (read-only, 2026-11-24): portfolio, eligibility and cost estimate. NOT VERIFIED:
- * the order create, status and cancel paths and JSON shapes (see {@link EToroConfig.Endpoints}); they are isolated in
- * this class and must be confirmed in phase 0 with a demo key that can write.
+ * <p>Verified in demo on 2026-11-26 (one 10 USD buy and its close): order create, order lookup, close by positionId,
+ * close status and portfolio shape. Verified read-only on 2026-11-24: eligibility and cost estimate. Every amount is
+ * capped by {@link EToroConfig#maxOrderAmount()} before anything is sent. NOT VERIFIED (docs only):
+ * the real-account paths, cancel, limit orders and the order status ids other than 3 Filled;
+ * see {@link EToroConfig.Endpoints}. They are isolated in this class.
  */
 public final class EToroBroker implements Broker {
+    private static final String CLOSE_PREFIX = "close:";
+    private static final int CLOSE_RECEIVED = 1;   // seen right after sending a close (2026-11-26)
+    private static final int CLOSE_FILLED = 3;     // seen a moment later
     private static final int MAX_READ_ATTEMPTS = 3;
     private static final int MAX_WRITE_THROTTLE_RETRIES = 2;
     private static final long MAX_WAIT_SECONDS = 60;
@@ -76,10 +85,21 @@ public final class EToroBroker implements Broker {
     public void submit(OrderRequest order) throws BrokerException {
         long instrumentId = catalog.brokerId(order.isin())
                 .orElseThrow(() -> new BrokerRejectedException("no eToro id for " + order.isin().value()));
-        String body = orderBody(order, instrumentId);
+        if (order.amountEur().compareTo(config.maxOrderAmount()) > 0) {
+            throw new BrokerRejectedException("amount " + order.amountEur() + " is above the cap of "
+                    + config.maxOrderAmount() + " per order, order not sent");
+        }
+        if (order.limitPrice() != null) {
+            throw new BrokerRejectedException("limit orders are not supported (their body is not verified), order not sent");
+        }
         if (config.mode() == EToroConfig.Mode.REAL) {
             preflight(order, instrumentId);
         }
+        if (order.side() == OrderRequest.Side.SELL) {
+            sell(order, instrumentId);
+            return;
+        }
+        String body = orderBody(order, instrumentId);
         String path = config.mode() == EToroConfig.Mode.REAL
                 ? config.endpoints().ordersReal() : config.endpoints().ordersDemo();
         Response r = write("POST", path, body, order.internalId());
@@ -97,15 +117,84 @@ public final class EToroBroker implements Broker {
 
     private String orderBody(OrderRequest o, long instrumentId) {
         ObjectNode n = new ObjectMapper().setNodeFactory(JsonNodeFactory.withExactBigDecimals(true)).createObjectNode();
+        n.put("action", "open");             // verified 2026-11-26 (demo); a sell is a close by positionId, see sell()
+        n.put("transaction", "buy");
         n.put("instrumentId", instrumentId);
-        n.put("isBuy", o.side() == OrderRequest.Side.BUY);
-        n.put("amount", o.amountEur());      // by amount: never units or contracts at the same time
-        n.put("leverage", 1);                // never leverage
         n.put("settlementType", "real");     // never a CFD
-        if (o.limitPrice() != null) {
-            n.put("limitRate", o.limitPrice());
-        }
+        n.put("orderType", "mkt");
+        n.put("leverage", 1);                // never leverage
+        n.put("amount", o.amountEur());      // by amount: never units or contracts at the same time
+        n.put("orderCurrency", "usd");       // eToro states amounts in USD (see cash())
         return n.toString();
+    }
+
+    /**
+     * A sell closes open positions of the instrument by positionId (verified 2026-11-26 in demo): the whole position
+     * when {@code closePosition} is set, otherwise units worth about the requested amount, oldest position first. The
+     * references of all close orders are stored together as {@code close:id1,id2}. If a later close fails after an
+     * earlier one went through, the references so far are kept and the outcome is reported as unknown.
+     */
+    private void sell(OrderRequest order, long instrumentId) throws BrokerException {
+        List<JsonNode> open = new ArrayList<>();
+        for (JsonNode p : portfolio().path("positions")) {
+            if (instrumentOf(p) == instrumentId && p.path("units").decimalValue().signum() > 0) {
+                open.add(p);
+            }
+        }
+        if (open.isEmpty()) {
+            throw new BrokerRejectedException("no open position in " + order.isin().value() + " to sell, order not sent");
+        }
+        boolean demo = config.mode() != EToroConfig.Mode.REAL;
+        String template = demo ? config.endpoints().closeDemo() : config.endpoints().closeReal();
+        BigDecimal left = order.amountEur();
+        List<String> closeIds = new ArrayList<>();
+        for (JsonNode p : open) {
+            if (!order.closePosition() && left.signum() <= 0) {
+                break;
+            }
+            BigDecimal units = p.path("units").decimalValue();
+            BigDecimal exposure = p.path("unrealizedPnL").path("exposureInAccountCurrency").decimalValue();
+            ObjectNode body = JsonNodeFactory.instance.objectNode();
+            body.put("InstrumentId", instrumentId);
+            if (!order.closePosition() && exposure.compareTo(left) > 0 && exposure.signum() > 0) {
+                BigDecimal part = left.multiply(units).divide(exposure, 6, java.math.RoundingMode.DOWN);
+                if (part.signum() <= 0) {
+                    break;
+                }
+                body.put("UnitsToDeduct", part);
+                left = BigDecimal.ZERO;
+            } else {
+                left = left.subtract(exposure);
+            }
+            String path = template.replace("{positionId}", String.valueOf(p.path("positionID").asLong()));
+            try {
+                Response r = write("POST", path, body.toString(), UUID.randomUUID());
+                String id = json.readTree(r.body()).path("orderForClose").path("orderID").asText("");
+                if (id.isBlank()) {
+                    throw new BrokerUnavailableException("close accepted but no order id in the response");
+                }
+                closeIds.add(id);
+            } catch (IOException | BrokerException e) {
+                if (!closeIds.isEmpty()) {
+                    refs.put(order.internalId(), CLOSE_PREFIX + String.join(",", closeIds));
+                    throw new BrokerUnavailableException("a close failed after " + closeIds.size()
+                            + " went through, outcome unknown: " + e.getMessage(), e);
+                }
+                if (e instanceof BrokerException be) {
+                    throw be;
+                }
+                throw new BrokerUnavailableException("close accepted but response unreadable", e);
+            }
+        }
+        if (closeIds.isEmpty()) {
+            throw new BrokerRejectedException("nothing to close for " + order.isin().value() + ", order not sent");
+        }
+        refs.put(order.internalId(), CLOSE_PREFIX + String.join(",", closeIds));
+    }
+
+    private static long instrumentOf(JsonNode position) {
+        JsonNode id = position.has("instrumentID") ? position.path("instrumentID") : position.path("instrumentId");
+        return id.asLong(-1);
     }
 
     /**
@@ -192,6 +281,9 @@ public final class EToroBroker implements Broker {
     public void cancel(UUID internalId) throws BrokerException {
         String ref = refs.get(internalId).orElseThrow(
                 () -> new BrokerRejectedException("order " + internalId + " has no broker reference"));
+        if (ref.startsWith(CLOSE_PREFIX)) {
+            throw new BrokerRejectedException("a close order cannot be cancelled: it is executed at once");
+        }
         String path = (config.mode() == EToroConfig.Mode.REAL ? config.endpoints().ordersReal()
                 : config.endpoints().ordersDemo()) + "/" + ref;
         write("DELETE", path, null, UUID.randomUUID());
@@ -207,30 +299,81 @@ public final class EToroBroker implements Broker {
         if (ref.isEmpty()) {
             return Optional.empty();
         }
-        Response r = read(config.endpoints().orderStatus().replace("{id}", ref.orElseThrow()));
+        String stored = ref.orElseThrow();
+        if (stored.startsWith(CLOSE_PREFIX)) {
+            return lookupClose(internalId, stored.substring(CLOSE_PREFIX.length()));
+        }
+        boolean demo = config.mode() != EToroConfig.Mode.REAL;
+        String base = demo ? config.endpoints().lookupDemo() : config.endpoints().lookupReal();
+        Response r = read(base + "?orderId=" + URLEncoder.encode(stored, StandardCharsets.UTF_8));
         if (r.status() == 404) {
-            return Optional.empty();
+            // seen live on 2026-11-26: a new order is not listed for a moment. We hold eToro's id, so it is pending.
+            return Optional.of(new BrokerOrder(internalId, OrderState.SUBMITTED, BigDecimal.ZERO, BigDecimal.ZERO, null));
         }
         try {
             JsonNode n = json.readTree(r.body());
-            BigDecimal amount = decimal(n, "executedAmount");
-            BigDecimal units = decimal(n, "executedUnits");
-            BigDecimal price = decimal(n, "averagePrice");
-            return Optional.of(new BrokerOrder(internalId, state(n.path("status").asText("")), amount, units,
-                    price.signum() == 0 ? null : price));
+            BigDecimal amount = BigDecimal.ZERO;
+            BigDecimal units = BigDecimal.ZERO;
+            BigDecimal weighted = BigDecimal.ZERO;
+            for (JsonNode e : n.path("positionExecutions")) {
+                JsonNode open = e.path("openingData");
+                BigDecimal u = decimal(open, "units");
+                amount = amount.add(decimal(e, "initialExposureAccountCurrency"));
+                units = units.add(u);
+                weighted = weighted.add(decimal(open, "avgPrice").multiply(u));
+            }
+            BigDecimal price = units.signum() == 0 ? null : weighted.divide(units, 6, java.math.RoundingMode.HALF_UP);
+            return Optional.of(new BrokerOrder(internalId, state(n.path("status").path("id").asInt(-1)), amount, units,
+                    price));
         } catch (IOException e) {
             throw new BrokerUnavailableException("order status unreadable", e);
         }
     }
 
-    private static OrderState state(String s) throws BrokerUnavailableException {
-        return switch (s.toLowerCase(java.util.Locale.ROOT)) {
-            case "pending", "open", "submitted" -> OrderState.SUBMITTED;
-            case "partiallyexecuted", "partially_filled" -> OrderState.PARTIALLY_FILLED;
-            case "executed", "filled" -> OrderState.FILLED;
-            case "cancelled", "canceled" -> OrderState.CANCELLED;
-            case "rejected" -> OrderState.REJECTED;
-            default -> throw new BrokerUnavailableException("unknown order status '" + s + "'");
+    /** Status of the close orders of a sell: filled only when every one is filled (verified statusID 3, 2026-11-26). */
+    private Optional<BrokerOrder> lookupClose(UUID internalId, String ids) throws BrokerException {
+        boolean demo = config.mode() != EToroConfig.Mode.REAL;
+        String template = demo ? config.endpoints().closeStatusDemo() : config.endpoints().closeStatusReal();
+        BigDecimal amount = BigDecimal.ZERO;
+        BigDecimal units = BigDecimal.ZERO;
+        boolean allFilled = true;
+        for (String id : ids.split(",")) {
+            Response r = read(template.replace("{id}", id));
+            if (r.status() == 404) {
+                // seen live on 2026-11-26: right after sending, the close is accepted but not listed yet. We hold its
+                // id, so it is "sent, pending", not "no trace" (which would halt the caller).
+                allFilled = false;
+                continue;
+            }
+            try {
+                JsonNode n = json.readTree(r.body());
+                int status = n.path("statusID").asInt(-1);
+                if (status != CLOSE_FILLED && status != CLOSE_RECEIVED) {
+                    throw new BrokerUnavailableException("unknown close status " + status + " for close order " + id);
+                }
+                allFilled &= status == CLOSE_FILLED;
+                for (JsonNode p : n.path("positions")) {
+                    amount = amount.add(decimal(p, "amount"));
+                    units = units.add(decimal(p, "units"));
+                }
+            } catch (IOException e) {
+                throw new BrokerUnavailableException("close status unreadable", e);
+            }
+        }
+        BigDecimal price = units.signum() == 0 ? null : amount.divide(units, 6, java.math.RoundingMode.HALF_UP);
+        return Optional.of(new BrokerOrder(internalId, allFilled ? OrderState.FILLED : OrderState.SUBMITTED, amount,
+                units, price));
+    }
+
+    /** Status ids of eToro order lookup (documentation; only 3 Filled was seen live on 2026-11-26). */
+    private static OrderState state(int id) throws BrokerUnavailableException {
+        return switch (id) {
+            case 1, 2, 6, 11, 12 -> OrderState.SUBMITTED;
+            case 3 -> OrderState.FILLED;
+            case 5, 9 -> OrderState.PARTIALLY_FILLED;
+            case 7, 8 -> OrderState.CANCELLED;
+            case 4, 10 -> OrderState.REJECTED;
+            default -> throw new BrokerUnavailableException("unknown order status id " + id);
         };
     }
 
@@ -246,7 +389,7 @@ public final class EToroBroker implements Broker {
         JsonNode root = portfolio();
         Map<Isin, BigDecimal> out = new HashMap<>();
         for (JsonNode p : root.path("positions")) {
-            long id = p.path("instrumentId").asLong();
+            long id = instrumentOf(p);   // the real response says instrumentID (verified 2026-11-26)
             Isin isin = catalog.isin(id).orElseThrow(
                     () -> new BrokerUnavailableException("broker holds unknown instrument id " + id));
             out.merge(isin, p.path("units").decimalValue(), BigDecimal::add);

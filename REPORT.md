@@ -49,3 +49,18 @@
 - Cambio: `.github/dependabot.yml` (Dependabot ignora todas las versiones nuevas de `grafana/tempo`) y un comentario en `scripts/smoke-stack.sh`.
 - Por qué: Tempo 2.10 y 3.1 fallan la comprobación de trazas de la pila. Se probó dar un rango de tiempo a la búsqueda y no lo arregló; la causa no se conoce y hace falta Docker local para depurarla.
 - Cómo comprobarlo: el PR pasa el "CI gate"; Dependabot deja de abrir PR de Tempo y se cierra el PR 58.
+
+10.
+- Cambio: `docs/fase0-verificacion-etoro.md`, sección nueva «Verificado con la clave demo».
+- Por qué: se hizo la primera orden demo (compra de 10 USD de EUNL.DE y cierre) y se vio que el cuerpo de la orden y la ruta de cierre del código no coinciden con eToro.
+- Cómo comprobarlo: leer esa sección. La cartera demo quedó vacía y con el saldo original (100000); no se tocó la cuenta real.
+
+11.
+- Cambio: `EToroConfig` (campo nuevo `maxOrderAmount`) y `EToroBroker.submit`, más 3 tests.
+- Por qué: tope duro por orden; si el importe lo supera, se rechaza antes de enviar nada. Así las pruebas con eToro no pueden gastar de más.
+- Cómo comprobarlo: `mvn -pl trading-broker-etoro -am test -Dtest=EToroBrokerTest` → 28 tests, 0 fallos.
+
+12.
+- Cambio: `EToroBroker` (compra, venta por cierre de posición, estado, cartera) y `EToroConfig` (rutas nuevas), con tests y una prueba opcional `EToroDemoLiveTest`.
+- Por qué: el código antiguo enviaba un cuerpo que eToro rechaza y no sabía vender ni leer la cartera real; ahora usa lo comprobado en demo, con tope de 10 por orden.
+- Cómo comprobarlo: `mvn -pl trading-broker-etoro -am test` → 40 tests, 0 fallos; con `ETORO_LIVE_DEMO=1` la prueba real compra 10 USD y los cierra en demo (cuenta demo limpia al final).
