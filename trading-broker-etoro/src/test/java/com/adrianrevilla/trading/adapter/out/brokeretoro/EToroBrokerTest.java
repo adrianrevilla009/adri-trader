@@ -95,7 +95,7 @@ class EToroBrokerTest {
 
     private EToroBroker broker(EToroConfig.Mode mode, Duration timeout, RateLimiter reads, RateLimiter writes) {
         var cfg = new EToroConfig("http://127.0.0.1:" + server.getAddress().getPort(), "API-KEY", "USER-KEY", mode,
-                timeout, EToroConfig.Endpoints.unverifiedDefaults());
+                timeout, EToroConfig.Endpoints.defaults(), new BigDecimal("1000"));
         InstrumentCatalog catalog = new InstrumentCatalog() {
             public Optional<Long> brokerId(Isin isin) { return isin.equals(ISIN) ? Optional.of(1001L) : Optional.empty(); }
             public Optional<Isin> isin(long id) { return id == 1001L ? Optional.of(ISIN) : Optional.empty(); }
@@ -111,6 +111,47 @@ class EToroBrokerTest {
         return broker(mode, Duration.ofSeconds(5), RateLimiter.perMinute(1000), RateLimiter.perMinute(1000));
     }
 
+    private EToroBroker cappedBroker(String cap) {
+        var cfg = new EToroConfig("http://127.0.0.1:" + server.getAddress().getPort(), "API-KEY", "USER-KEY",
+                EToroConfig.Mode.DEMO, Duration.ofSeconds(5), EToroConfig.Endpoints.defaults(),
+                new BigDecimal(cap));
+        InstrumentCatalog catalog = new InstrumentCatalog() {
+            public Optional<Long> brokerId(Isin isin) { return Optional.of(1001L); }
+            public Optional<Isin> isin(long id) { return Optional.of(ISIN); }
+        };
+        BrokerRefStore refs = new BrokerRefStore() {
+            public void put(UUID id, String ref) { refStore.put(id, ref); }
+            public Optional<String> get(UUID id) { return Optional.ofNullable(refStore.get(id)); }
+        };
+        return new EToroBroker(cfg, catalog, refs, RateLimiter.perMinute(1000), RateLimiter.perMinute(1000), sleeps::add);
+    }
+
+    @Test
+    void orderAboveTheCapIsRejectedWithoutAnyRequest() {
+        assertThatThrownBy(() -> cappedBroker("10").submit(buy()))   // buy() is 25.50
+                .isInstanceOf(BrokerRejectedException.class).hasMessageContaining("above the cap");
+        assertThat(seen).isEmpty();
+    }
+
+    @Test
+    void orderExactlyAtTheCapIsSent() throws Exception {
+        on("POST /api/v2/trading/execution/demo/orders", Reply.ok("{\"orderId\":\"E-1\"}"));
+        var order = new OrderRequest(UUID.randomUUID(), "agent", ISIN, OrderRequest.Side.BUY, new BigDecimal("10"), null);
+        cappedBroker("10").submit(order);
+        assertThat(seen).hasSize(1);
+    }
+
+    @Test
+    void configRejectsANonPositiveCap() {
+        for (String cap : new String[] {"0", "-5"}) {
+            assertThatThrownBy(() -> new EToroConfig("http://x", "k", "u", EToroConfig.Mode.DEMO, Duration.ofSeconds(1),
+                    EToroConfig.Endpoints.defaults(), new BigDecimal(cap)))
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+        assertThatThrownBy(() -> new EToroConfig("http://x", "k", "u", EToroConfig.Mode.DEMO, Duration.ofSeconds(1),
+                EToroConfig.Endpoints.defaults(), null)).isInstanceOf(IllegalArgumentException.class);
+    }
+
     private static OrderRequest buy() {
         return new OrderRequest(UUID.randomUUID(), "agent", ISIN, OrderRequest.Side.BUY, new BigDecimal("25.50"), null);
     }
@@ -124,8 +165,10 @@ class EToroBrokerTest {
         Seen s = seen.get(0);
         assertThat(s.headers()).containsEntry("x-api-key", "API-KEY").containsEntry("x-user-key", "USER-KEY")
                 .containsEntry("x-request-id", order.internalId().toString());
-        assertThat(s.body()).contains("\"instrumentId\":1001", "\"isBuy\":true", "\"amount\":25.50",
-                "\"leverage\":1", "\"settlementType\":\"real\"");
+        assertThat(s.body()).contains("\"instrumentId\":1001", "\"action\":\"open\"", "\"transaction\":\"buy\"",
+                "\"amount\":25.50", "\"orderType\":\"mkt\"", "\"orderCurrency\":\"usd\"", "\"leverage\":1",
+                "\"settlementType\":\"real\"");
+        assertThat(s.body()).doesNotContain("isBuy");
         assertThat(s.body()).doesNotContain("units", "contracts");
         assertThat(refStore.get(order.internalId())).isEqualTo("E-1");
     }
@@ -235,10 +278,122 @@ class EToroBrokerTest {
     void realSellChecksEligibilityButSkipsTheCostEstimate() throws Exception {
         // the costs endpoint rejects 'sell' (only opening is supported), so selling must not depend on it
         on(ELIGIBILITY, Reply.ok(eligibility("real", false, true, "10")));
-        on(REAL_ORDERS, Reply.ok("{\"orderId\":\"E-5\"}"));
+        on("GET /api/v1/trading/info/real/pnl", Reply.ok(portfolio(position(77, 1001, "2", "50"))));
+        on(REAL_CLOSE_77, Reply.ok(CLOSE_OK));
         broker(EToroConfig.Mode.REAL).submit(sell());
         assertThat(seen).extracting(Seen::path).containsExactly("/api/v2/trading/info/eligibility",
-                "/api/v2/trading/execution/orders");
+                "/api/v1/trading/info/real/pnl", "/api/v1/trading/execution/market-close-orders/positions/77");
+    }
+
+    // Shapes verified on 2026-11-26 in demo: portfolio positions, close response and close status.
+    private static final String REAL_CLOSE_77 = "POST /api/v1/trading/execution/market-close-orders/positions/77";
+    private static final String DEMO_CLOSE_77 = "POST /api/v1/trading/execution/demo/market-close-orders/positions/77";
+    private static final String CLOSE_OK = "{\"orderForClose\":{\"positionID\":77,\"instrumentID\":1001,"
+            + "\"orderID\":555,\"statusID\":1},\"token\":\"t\"}";
+
+    private static String position(long positionId, long instrumentId, String units, String exposure) {
+        return "{\"positionID\":" + positionId + ",\"instrumentID\":" + instrumentId + ",\"units\":" + units
+                + ",\"unrealizedPnL\":{\"exposureInAccountCurrency\":" + exposure + "}}";
+    }
+
+    private static String portfolio(String... positions) {
+        return "{\"clientPortfolio\":{\"credit\":100,\"positions\":[" + String.join(",", positions) + "]}}";
+    }
+
+    private static OrderRequest sellAll() {
+        return new OrderRequest(UUID.randomUUID(), "agent", ISIN, OrderRequest.Side.SELL, new BigDecimal("25.50"), null,
+                true);
+    }
+
+    private static com.fasterxml.jackson.databind.JsonNode parse(String json) throws IOException {
+        return new com.fasterxml.jackson.databind.ObjectMapper().readTree(json);
+    }
+
+    @Test
+    void sellAllClosesTheWholePositionWithoutUnitsToDeduct() throws Exception {
+        on("GET /api/v1/trading/info/demo/pnl", Reply.ok(portfolio(position(77, 1001, "2", "50"))));
+        on(DEMO_CLOSE_77, Reply.ok(CLOSE_OK));
+        var order = sellAll();
+        broker(EToroConfig.Mode.DEMO).submit(order);
+        var body = parse(seen.get(1).body());
+        assertThat(body.path("InstrumentId").asLong()).isEqualTo(1001);
+        assertThat(body.has("UnitsToDeduct")).isFalse();
+        assertThat(refStore.get(order.internalId())).isEqualTo("close:555");
+    }
+
+    @Test
+    void partialSellClosesOnlyTheUnitsWorthTheAmount() throws Exception {
+        on("GET /api/v1/trading/info/demo/pnl", Reply.ok(portfolio(position(77, 1001, "2", "50"))));
+        on(DEMO_CLOSE_77, Reply.ok(CLOSE_OK));
+        broker(EToroConfig.Mode.DEMO).submit(sell());   // 25.50 of a 50.00 position of 2 units
+        assertThat(parse(seen.get(1).body()).path("UnitsToDeduct").decimalValue()).isEqualByComparingTo("1.02");
+    }
+
+    @Test
+    void sellWithoutAnOpenPositionIsRejectedAndNothingIsClosed() {
+        on("GET /api/v1/trading/info/demo/pnl", Reply.ok(portfolio(position(78, 9999, "1", "10"))));
+        assertThatThrownBy(() -> broker(EToroConfig.Mode.DEMO).submit(sell()))
+                .isInstanceOf(BrokerRejectedException.class).hasMessageContaining("no open position");
+        assertThat(seen).extracting(Seen::method).containsOnly("GET");
+    }
+
+    @Test
+    void limitOrdersAreRejectedBecauseTheirBodyIsNotVerified() {
+        var limit = new OrderRequest(UUID.randomUUID(), "agent", ISIN, OrderRequest.Side.BUY, new BigDecimal("10"),
+                new BigDecimal("1.5"));
+        assertThatThrownBy(() -> broker(EToroConfig.Mode.DEMO).submit(limit))
+                .isInstanceOf(BrokerRejectedException.class).hasMessageContaining("limit");
+        assertThat(seen).isEmpty();
+    }
+
+    @Test
+    void closeStatusFilledAndReceivedAreMapped() throws Exception {
+        on("GET /api/v1/trading/info/demo/pnl", Reply.ok(portfolio(position(77, 1001, "2", "50"))));
+        on(DEMO_CLOSE_77, Reply.ok(CLOSE_OK));
+        on("GET /api/v1/trading/info/demo/close-orders/555",
+                Reply.ok("{\"statusID\":1,\"positions\":[]}"),
+                Reply.ok("{\"statusID\":3,\"proceeds\":50,\"positions\":[{\"positionID\":77,\"units\":2,\"amount\":50}]}"));
+        var b = broker(EToroConfig.Mode.DEMO);
+        var order = sellAll();
+        b.submit(order);
+        assertThat(b.lookup(order.internalId()).orElseThrow().state()).isEqualTo(OrderState.SUBMITTED);
+        var done = b.lookup(order.internalId()).orElseThrow();
+        assertThat(done.state()).isEqualTo(OrderState.FILLED);
+        assertThat(done.filledAmountEur()).isEqualByComparingTo("50");
+        assertThat(done.filledQuantity()).isEqualByComparingTo("2");
+        assertThat(done.averagePrice()).isEqualByComparingTo("25");
+    }
+
+    @Test
+    void aCloseNotListedYetIsPendingNotMissing() throws Exception {
+        on("GET /api/v1/trading/info/demo/pnl", Reply.ok(portfolio(position(77, 1001, "2", "50"))));
+        on(DEMO_CLOSE_77, Reply.ok(CLOSE_OK));   // the close-orders route answers 404 (not scripted)
+        var b = broker(EToroConfig.Mode.DEMO);
+        var order = sellAll();
+        b.submit(order);
+        var found = b.lookup(order.internalId()).orElseThrow();
+        assertThat(found.state()).isEqualTo(OrderState.SUBMITTED);
+    }
+
+    @Test
+    void unknownCloseStatusHaltsInsteadOfGuessing() throws Exception {
+        on("GET /api/v1/trading/info/demo/pnl", Reply.ok(portfolio(position(77, 1001, "2", "50"))));
+        on(DEMO_CLOSE_77, Reply.ok(CLOSE_OK));
+        on("GET /api/v1/trading/info/demo/close-orders/555", Reply.ok("{\"statusID\":42}"));
+        var b = broker(EToroConfig.Mode.DEMO);
+        var order = sellAll();
+        b.submit(order);
+        assertThatThrownBy(() -> b.lookup(order.internalId())).isInstanceOf(BrokerUnavailableException.class);
+    }
+
+    @Test
+    void aCloseOrderCannotBeCancelled() throws Exception {
+        on("GET /api/v1/trading/info/demo/pnl", Reply.ok(portfolio(position(77, 1001, "2", "50"))));
+        on(DEMO_CLOSE_77, Reply.ok(CLOSE_OK));
+        var b = broker(EToroConfig.Mode.DEMO);
+        var order = sellAll();
+        b.submit(order);
+        assertThatThrownBy(() -> b.cancel(order.internalId())).isInstanceOf(BrokerRejectedException.class);
     }
 
     @Test
@@ -353,8 +508,9 @@ class EToroBrokerTest {
     @Test
     void lookupMapsTheBrokerStatus() throws Exception {
         on("POST /api/v2/trading/execution/demo/orders", Reply.ok("{\"orderId\":\"E-5\"}"));
-        on("GET /api/v2/trading/execution/orders/E-5",
-                Reply.ok("{\"status\":\"PartiallyExecuted\",\"executedAmount\":10,\"executedUnits\":1,\"averagePrice\":10}"));
+        on("GET /api/v2/trading/info/demo/orders:lookup",
+                Reply.ok("{\"orderId\":5,\"status\":{\"id\":5,\"name\":\"PartiallyFilled\"},\"positionExecutions\":["
+                        + "{\"initialExposureAccountCurrency\":10,\"openingData\":{\"units\":1,\"avgPrice\":10}}]}"));
         var b = broker(EToroConfig.Mode.DEMO);
         var order = buy();
         b.submit(order);
@@ -362,5 +518,53 @@ class EToroBrokerTest {
         assertThat(found.state()).isEqualTo(OrderState.PARTIALLY_FILLED);
         assertThat(found.filledAmountEur()).isEqualByComparingTo("10");
         assertThat(found.averagePrice()).isEqualByComparingTo("10");
+        assertThat(seen.get(1).path()).isEqualTo("/api/v2/trading/info/demo/orders:lookup");
+    }
+
+    @Test
+    void lookupOfAFilledBuyReadsTheRealShapeSeenOn20261126() throws Exception {
+        on("POST /api/v2/trading/execution/demo/orders", Reply.ok("{\"orderId\":396862720,\"referenceId\":\"r\"}"));
+        on("GET /api/v2/trading/info/demo/orders:lookup",
+                Reply.ok("{\"orderId\":396862720,\"status\":{\"id\":3,\"name\":\"Filled\",\"errorCode\":0},"
+                        + "\"requestedAmount\":10.0,\"positionExecutions\":[{\"positionId\":3650752592,"
+                        + "\"initialExposureAccountCurrency\":9.99967350923472,\"openingData\":{\"units\":0.072374,"
+                        + "\"avgPrice\":125.922}}]}"));
+        var b = broker(EToroConfig.Mode.DEMO);
+        var order = buy();
+        b.submit(order);
+        var found = b.lookup(order.internalId()).orElseThrow();
+        assertThat(found.state()).isEqualTo(OrderState.FILLED);
+        assertThat(found.filledQuantity()).isEqualByComparingTo("0.072374");
+        assertThat(found.averagePrice()).isEqualByComparingTo("125.922");
+        assertThat(seen.get(1).path()).isEqualTo("/api/v2/trading/info/demo/orders:lookup");
+    }
+
+    @Test
+    void aBuyNotListedYetIsPendingNotMissing() throws Exception {
+        on("POST /api/v2/trading/execution/demo/orders", Reply.ok("{\"orderId\":\"E-7\"}"));   // lookup route: 404
+        var b = broker(EToroConfig.Mode.DEMO);
+        var order = buy();
+        b.submit(order);
+        var found = b.lookup(order.internalId()).orElseThrow();
+        assertThat(found.state()).isEqualTo(OrderState.SUBMITTED);
+        assertThat(found.filledQuantity()).isEqualByComparingTo("0");
+        assertThat(found.averagePrice()).isNull();
+    }
+
+    @Test
+    void unknownOrderStatusIdHaltsInsteadOfGuessing() throws Exception {
+        on("POST /api/v2/trading/execution/demo/orders", Reply.ok("{\"orderId\":\"E-6\"}"));
+        on("GET /api/v2/trading/info/demo/orders:lookup", Reply.ok("{\"status\":{\"id\":99}}"));
+        var b = broker(EToroConfig.Mode.DEMO);
+        var order = buy();
+        b.submit(order);
+        assertThatThrownBy(() -> b.lookup(order.internalId())).isInstanceOf(BrokerUnavailableException.class);
+    }
+
+    @Test
+    void portfolioPositionsReadTheRealFieldNames() throws Exception {
+        on("GET /api/v1/trading/info/demo/pnl",
+                Reply.ok(portfolio(position(1, 1001, "0.072374", "10"), position(2, 1001, "1", "5"))));
+        assertThat(broker(EToroConfig.Mode.DEMO).positions().get(ISIN)).isEqualByComparingTo("1.072374");
     }
 }
