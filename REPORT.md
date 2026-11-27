@@ -69,3 +69,8 @@
 - Cambio: `LiveConfig`, `EtoroProperties`, `LiveProperties` (trading-app), `CashCappedBroker` (trading-core), `application.yml`, `docker-compose.yml` y el ADR-0028.
 - Por qué: el bot ya puede correr cada día (19:15) contra la cuenta demo de eToro, con tope de 10 por orden, solo modo DEMO y apagado por defecto.
 - Cómo comprobarlo: `mvn -pl trading-app -am test -Dtest=LivePropertiesTest,CashCappedBrokerTest` → 11 tests, 0 fallos; el CI arranca la aplicación con el ciclo encendido (`LiveContextTest`).
+
+14.
+- Cambio: `docs/fase0-verificacion-etoro.md`, sección «Cancelación e instrumentos».
+- Por qué: se probó en demo cancelar una orden pendiente (funciona con la ruta del código) y se comprobó que eToro tiene 3 de los 4 ETF del universo; EUNK.DE no existe allí.
+- Cómo comprobarlo: leer la sección. Solo se hizo una orden pendiente de 10 USD en demo y se canceló; la cuenta demo quedó limpia.
