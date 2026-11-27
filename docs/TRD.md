@@ -241,4 +241,4 @@ Broker falso con rechazos, ejecuciones parciales, desconexión a mitad de orden 
 
 ## 15. Excepciones respecto a la fábrica (ai-project-factory)
 
-Docker Compose en vez de Kubernetes (ADR-0009), solo PostgreSQL (ADR-0023), sin frontend, sin AWS/Terraform/Vault/Keycloak/Istio. Respuestas de intake: `notifications` sí (Telegram); `full_history` no (ledger inmutable); `resilience_tier` 3; `frontend` no; el resto de capacidades, no.
+Docker Compose en vez de Kubernetes (ADR-0009), solo PostgreSQL (ADR-0023), frontend mínimo solo para gestionar agentes (ADR-0030, `frontend/`), sin AWS/Terraform/Vault/Keycloak/Istio. Respuestas de intake: `notifications` sí (Telegram); `full_history` no (ledger inmutable); `resilience_tier` 3; `frontend` no; el resto de capacidades, no.
