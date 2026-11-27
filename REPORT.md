@@ -99,3 +99,28 @@
 - Cambio: `docs/runbook.md` (sección nueva del ciclo diario en demo) y `CLAUDE.md` (lo que sigue sin verificar).
 - Por qué: explicar cómo encender, probar, vigilar y apagar el ciclo demo, y dejar claro qué está ya comprobado en eToro y qué no.
 - Cómo comprobarlo: leer la sección «Ciclo diario en la cuenta demo de eToro» del runbook.
+
+20.
+- Cambio: `docs/moneda-y-conversion.md` (documento nuevo).
+- Por qué: dejar por escrito cómo afecta el cambio USD/EUR de eToro al dinero real, marcando lo que no está comprobado.
+- Cómo comprobarlo: leer el documento; no cambia código, así que no hay tests nuevos.
+
+21.
+- Cambio: `docs/adr/0030-agentes-dinamicos-api-ui.md` y su fila en `docs/adr/README.md`.
+- Por qué: dejar decidido que los agentes se crean y paran desde una API y una UI, con la configuración en base de datos.
+- Cómo comprobarlo: leer la ADR; no cambia código, así que no hay tests nuevos.
+
+22.
+- Cambio: `trading-core`, paquete `domain`: `AgentConfig`, `CapitalPolicy`, `EscalationStep`, `TradingMode`, `AgentRunState` (clases nuevas) y sus tests.
+- Por qué: es el modelo del agente configurable (estrategia, parámetros, capital, pasos); rechaza capital bajo el mínimo y el modo PROD.
+- Cómo comprobarlo: `mvn -pl trading-core test` → 55 tests, 0 fallos.
+
+23.
+- Cambio: `V7__agent.sql`, `AgentStore` (puerto) y `JdbcAgentStore` (adaptador), más `AgentConfig` que ignora ceros de más (200 = 200.00).
+- Por qué: guardar los agentes y cada cambio de su configuración (quién, cuándo, valor anterior y nuevo) en la base de datos.
+- Cómo comprobarlo: `mvn -pl trading-adapter-persistence -am test` → 10 tests nuevos de base de datos y 21 del dominio, 0 fallos.
+
+24.
+- Cambio: `JdbcAgentStore` (SQL en bloques de texto y sin `Optional.get`).
+- Por qué: la revisión estática (Semgrep) rechazaba esas dos formas de escribir; el comportamiento no cambia.
+- Cómo comprobarlo: `bash scripts/semgrep.sh` → sin hallazgos; `JdbcAgentStoreTest` en verde.
