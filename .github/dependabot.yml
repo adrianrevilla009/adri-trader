@@ -75,3 +75,18 @@ updates:
         update-types: ["version-update:semver-major"]
     commit-message:
       prefix: "build(deps)"
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "build(deps)"
+    # Majors are a planned migration, not an automatic bump (see docs/ci-cd.md).
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      frontend-dev:
+        dependency-type: development

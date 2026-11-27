@@ -342,10 +342,35 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   # The only job branch protection requires. It runs even when others fail, and fails if any of them failed.
+  # The screen that manages agents (ADR-0030). Its own job because it needs Node, not Java.
+  frontend:
+    name: Frontend (typecheck, tests, build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      # npm ci installs exactly what package-lock.json says and fails if it does not match package.json
+      - run: npm ci --ignore-scripts
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      # Only dependencies that reach the browser matter at run time; dev tools are checked too but do not block on low findings.
+      - run: npm audit --audit-level=high
+
   ci-gate:
     name: CI gate
     if: always()
-    needs: [build-test, terraform, semgrep, ops-config, stack-smoke, secrets-scan, repo-scan, dependency-review, image, sonar, pr-title]
+    needs: [build-test, terraform, semgrep, ops-config, stack-smoke, secrets-scan, repo-scan, dependency-review, image, sonar, pr-title, frontend]
     runs-on: ubuntu-latest
     steps:
       - name: Every required job passed (skipped is fine only for jobs that are conditional)

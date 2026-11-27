@@ -106,6 +106,43 @@ la ingesta. Usa un día que tenga barra; el día se reclama en la base de datos,
 **Límites conocidos** (no los des por resueltos): la estrategia es `buy-and-hold`, no hay ninguna que supere al benchmark; USD y EUR se
 tratan 1:1; una orden de mercado fuera de horario no está probada; eToro acepta una orden menor de 10 USD y la rechaza después.
 
+## Agentes desde la pantalla (varios agentes en la cuenta demo)
+
+Decisión: [ADR-0030](adr/0030-agentes-dinamicos-api-ui.md). Los agentes se guardan en la base de datos; se crean, cambian, paran y
+reanudan desde una pantalla (React, carpeta `frontend/`) que usa una API local. Solo demo.
+
+**Encender la API** (en `.env`; sin token la API no existe):
+
+```
+TRADING_API_TOKEN=...             # 16 caracteres o más; es la contraseña de la pantalla
+```
+
+La API escucha en `127.0.0.1:8100` (en compose se publica solo en el loopback del equipo). **Pantalla:** `make ui-install` una vez y
+`make ui` (http://127.0.0.1:5173); pide el token y lo guarda solo en esa pestaña.
+
+**Cómo funciona cada día:** a las 19:15 corre cada agente *activo*, cada uno con su estrategia, su capital y sus instrumentos. Un
+agente nuevo opera desde el **siguiente** ciclo. Un fallo en un agente se avisa y los demás siguen.
+
+**Reglas que aplica el servidor (la pantalla solo las enseña):**
+
+| Regla | Valor |
+| --- | --- |
+| Capital mínimo por agente | 40 (el 25 % por activo debe llegar al mínimo por orden de 10) |
+| Tope por orden en demo | 10 (`trading.etoro.max-order-amount`); no se salta desde la API |
+| Instrumentos | solo los que tienen id de eToro en `TRADING_ETORO_INSTRUMENTS` |
+| Parar un agente | deja de enviar órdenes **y conserva sus posiciones**; cerrarlas es una acción aparte (aún no existe en la pantalla) |
+| Pasos de escalado | los guarda el agente; subir de paso lo confirma una persona (el capital no cambia solo) |
+| Modo PROD | la API contesta 409 y avisa por Telegram; hace falta MFA y su propia ADR (fase 2) |
+
+**Cuenta compartida:** todos los agentes comparten la cuenta de eToro, así que la reconciliación compara la **suma** de los libros con
+la cuenta. Cada agente ve solo su presupuesto: su capital menos lo que ya tiene invertido o pendiente de comprar.
+
+**Cada cambio queda registrado** (quién, cuándo, valor anterior y nuevo) en `agent_config_audit`, que no admite `UPDATE` ni `DELETE`;
+en la pantalla, botón «Historial». Primer agente: mientras no haya ninguno, `TRADING_LIVE_ISIN` crea `live-demo` (buy-and-hold, capital 40).
+
+**No verificado:** que eToro acepte varios agentes comprando el mismo ETF el mismo día sin chocar con sus reglas de ETF parecidos;
+el límite de 20 escrituras por minuto con muchos agentes.
+
 ## Antes del dinero real (lista de comprobación)
 
 - [ ] Cuatro semanas en demo sin intervención y reconciliación sin diferencias sin explicar.

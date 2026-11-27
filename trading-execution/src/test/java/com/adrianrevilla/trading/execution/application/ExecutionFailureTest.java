@@ -91,6 +91,41 @@ class ExecutionFailureTest {
     }
 
     @Test
+    void severalAgentsOnOneAccountReconcileAgainstTheSumOfTheirLedgers() {
+        var a = new OrderRequest(UUID.randomUUID(), "agent-a", A, Side.BUY, new BigDecimal("100"), null);
+        var b = new OrderRequest(UUID.randomUUID(), "agent-b", A, Side.BUY, new BigDecimal("50"), null);
+        service.send(a);
+        service.send(b);
+        sim.executePending(OPEN);
+        service.syncOpenOrders();
+
+        // the account holds 15 units: 10 of agent-a and 5 of agent-b
+        assertThat(service.reconcile("agent-a").ok()).isFalse(); // one agent alone cannot explain the account
+        kill.deactivate();
+        alerts.clear();
+        assertThat(service.reconcileAll().ok()).isTrue();
+        assertThat(kill.isActive()).isFalse();
+    }
+
+    @Test
+    void aRealDifferenceStillHaltsWhenReconcilingEveryAgent() {
+        var a = new OrderRequest(UUID.randomUUID(), "agent-a", A, Side.BUY, new BigDecimal("100"), null);
+        service.send(a);
+        sim.executePending(OPEN);
+        service.syncOpenOrders();
+        // the ledger claims one unit more than the broker holds
+        repo.recordFill(a.internalId(), BigDecimal.ONE, BigDecimal.TEN, BigDecimal.TEN);
+
+        assertThat(service.reconcileAll().ok()).isFalse();
+        assertThat(kill.isActive()).isTrue();
+    }
+
+    @Test
+    void reconcilingAnEmptyLedgerAgainstAnEmptyAccountIsFine() {
+        assertThat(service.reconcileAll().ok()).isTrue();
+    }
+
+    @Test
     void orderThatNeverArrivedHaltsTradingInsteadOfBeingResent() {
         broker.failNextSubmit(Fault.TIMEOUT_BEFORE_DELIVERY);
         var o = buy("100");

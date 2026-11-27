@@ -116,6 +116,34 @@ public class JdbcOrderRepository implements OrderRepository {
         return out;
     }
 
+    @Override
+    public Map<Isin, BigDecimal> netUnitsAll() {
+        Map<Isin, BigDecimal> out = new HashMap<>();
+        jdbc.query("""
+                SELECT i.isin, SUM(CASE o.side WHEN 'BUY' THEN f.quantity ELSE -f.quantity END)
+                FROM fill f JOIN trade_order o ON o.id = f.order_id JOIN instrument i ON i.id = o.instrument_id
+                GROUP BY i.isin""",
+                rs -> {
+                    out.put(new Isin(rs.getString(1).trim()), rs.getBigDecimal(2));
+                });
+        return out;
+    }
+
+    @Override
+    public BigDecimal committedAmount(String agentId) {
+        BigDecimal filled = jdbc.queryForObject("""
+                SELECT COALESCE(SUM(CASE o.side WHEN 'BUY' THEN f.amount_eur ELSE -f.amount_eur END), 0)
+                FROM fill f JOIN trade_order o ON o.id = f.order_id
+                WHERE o.agent_id = ?""", BigDecimal.class, agentId);
+        BigDecimal open = jdbc.queryForObject("""
+                SELECT COALESCE(SUM(GREATEST(o.amount_eur
+                        - COALESCE((SELECT SUM(f.amount_eur) FROM fill f WHERE f.order_id = o.id), 0), 0)), 0)
+                FROM trade_order o
+                WHERE o.agent_id = ? AND o.side = 'BUY' AND o.state IN ('SUBMITTED', 'PARTIALLY_FILLED')""",
+                BigDecimal.class, agentId);
+        return (filled == null ? BigDecimal.ZERO : filled).add(open == null ? BigDecimal.ZERO : open);
+    }
+
     private static OrderRecord record(ResultSet rs) throws SQLException {
         OrderRequest req = new OrderRequest(rs.getObject(1, UUID.class), rs.getString(2), new Isin(rs.getString(3).trim()),
                 OrderRequest.Side.valueOf(rs.getString(4)), rs.getBigDecimal(5), rs.getBigDecimal(6));
