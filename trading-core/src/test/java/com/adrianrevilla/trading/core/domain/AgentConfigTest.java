@@ -14,9 +14,10 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 class AgentConfigTest {
     private static final CapitalPolicy POLICY = new CapitalPolicy(new BigDecimal("10"), new BigDecimal("0.25"));
+    private static final List<Isin> UNIVERSE = List.of(new Isin("IE00B4L5Y983"), new Isin("IE00B5BMR087"));
 
     private static AgentConfig agent(String id, BigDecimal capital) {
-        return AgentConfig.create(id, "trend", Map.of("window", new BigDecimal("200")), capital, List.of(),
+        return AgentConfig.create(id, "trend", Map.of("window", new BigDecimal("200")), UNIVERSE, capital, List.of(),
                 TradingMode.DEMO, POLICY);
     }
 
@@ -48,7 +49,7 @@ class AgentConfigTest {
     @NullAndEmptySource
     @ValueSource(strings = {" "})
     void rejectsBlankStrategy(String strategy) {
-        assertThatThrownBy(() -> AgentConfig.create("a", strategy, Map.of(), new BigDecimal("40"), List.of(),
+        assertThatThrownBy(() -> AgentConfig.create("a", strategy, Map.of(), UNIVERSE, new BigDecimal("40"), List.of(),
                 TradingMode.DEMO, POLICY)).isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -66,7 +67,7 @@ class AgentConfigTest {
 
     @Test
     void rejectsProdUntilItIsBuilt() {
-        assertThatThrownBy(() -> AgentConfig.create("a", "trend", Map.of(), new BigDecimal("40"), List.of(),
+        assertThatThrownBy(() -> AgentConfig.create("a", "trend", Map.of(), UNIVERSE, new BigDecimal("40"), List.of(),
                 TradingMode.PROD, POLICY))
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("PROD");
     }
@@ -75,7 +76,7 @@ class AgentConfigTest {
     void doesNotKeepAReferenceToTheParamsOfTheCaller() {
         Map<String, BigDecimal> params = new HashMap<>();
         params.put("window", new BigDecimal("200"));
-        var a = AgentConfig.create("a", "trend", params, new BigDecimal("40"), List.of(), TradingMode.DEMO, POLICY);
+        var a = AgentConfig.create("a", "trend", params, UNIVERSE, new BigDecimal("40"), List.of(), TradingMode.DEMO, POLICY);
         params.put("window", BigDecimal.ONE);
         assertThat(a.params()).containsEntry("window", new BigDecimal("200"));
         assertThatThrownBy(() -> a.params().put("x", BigDecimal.ONE)).isInstanceOf(UnsupportedOperationException.class);
@@ -85,15 +86,45 @@ class AgentConfigTest {
     void rejectsNullParamValues() {
         Map<String, BigDecimal> params = new HashMap<>();
         params.put("window", null);
-        assertThatThrownBy(() -> AgentConfig.create("a", "trend", params, new BigDecimal("40"), List.of(),
+        assertThatThrownBy(() -> AgentConfig.create("a", "trend", params, UNIVERSE, new BigDecimal("40"), List.of(),
                 TradingMode.DEMO, POLICY)).isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
+    void theUniverseIsRequiredWithoutDuplicatesOrNullsAndIsCopied() {
+        assertThatThrownBy(() -> AgentConfig.create("a", "t", Map.of(), List.of(), new BigDecimal("40"), List.of(),
+                TradingMode.DEMO, POLICY)).isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("universe");
+        assertThatThrownBy(() -> AgentConfig.create("a", "t", Map.of(), List.of(UNIVERSE.get(0), UNIVERSE.get(0)),
+                new BigDecimal("40"), List.of(), TradingMode.DEMO, POLICY))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("twice");
+        var withNull = new java.util.ArrayList<Isin>();
+        withNull.add(null);
+        assertThatThrownBy(() -> AgentConfig.create("a", "t", Map.of(), withNull, new BigDecimal("40"), List.of(),
+                TradingMode.DEMO, POLICY)).isInstanceOf(IllegalArgumentException.class);
+
+        var mutable = new java.util.ArrayList<>(UNIVERSE);
+        var a = AgentConfig.create("a", "t", Map.of(), mutable, new BigDecimal("40"), List.of(), TradingMode.DEMO,
+                POLICY);
+        mutable.clear();
+        assertThat(a.universe()).containsExactlyElementsOf(UNIVERSE);
+        assertThatThrownBy(() -> a.universe().add(UNIVERSE.get(0))).isInstanceOf(UnsupportedOperationException.class);
+    }
+
+    @Test
+    void theOrderOfTheUniverseMattersForEquality() {
+        var a = AgentConfig.create("a", "t", Map.of(), List.of(UNIVERSE.get(0), UNIVERSE.get(1)),
+                new BigDecimal("40"), List.of(), TradingMode.DEMO, POLICY);
+        var b = AgentConfig.create("a", "t", Map.of(), List.of(UNIVERSE.get(1), UNIVERSE.get(0)),
+                new BigDecimal("40"), List.of(), TradingMode.DEMO, POLICY);
+        assertThat(a).isNotEqualTo(b); // buy-and-hold uses the first one
+    }
+
+    @Test
     void equalityIgnoresTheScaleOfNumbers() {
-        var a = AgentConfig.create("a", "t", Map.of("w", new BigDecimal("200")), new BigDecimal("40"),
+        var a = AgentConfig.create("a", "t", Map.of("w", new BigDecimal("200")), UNIVERSE, new BigDecimal("40"),
                 List.of(new EscalationStep(30, new BigDecimal("60"))), TradingMode.DEMO, POLICY);
-        var b = AgentConfig.create("a", "t", Map.of("w", new BigDecimal("200.0000000000")),
+        var b = AgentConfig.create("a", "t", Map.of("w", new BigDecimal("200.0000000000")), UNIVERSE,
                 new BigDecimal("40.000000"), List.of(new EscalationStep(30, new BigDecimal("60.00"))),
                 TradingMode.DEMO, POLICY);
         assertThat(b).isEqualTo(a).hasSameHashCodeAs(a);
@@ -122,7 +153,7 @@ class AgentConfigTest {
 
     @Test
     void acceptsIncreasingEscalationSteps() {
-        var a = AgentConfig.create("a", "trend", Map.of(), new BigDecimal("40"),
+        var a = AgentConfig.create("a", "trend", Map.of(), UNIVERSE, new BigDecimal("40"),
                 List.of(new EscalationStep(30, new BigDecimal("60")), new EscalationStep(60, new BigDecimal("100"))),
                 TradingMode.DEMO, POLICY);
         assertThat(a.steps()).hasSize(2);
@@ -132,9 +163,9 @@ class AgentConfigTest {
     void rejectsStepsOutOfOrderNotAboveTheCapitalOrBelowThePolicy() {
         var late = new EscalationStep(60, new BigDecimal("100"));
         var early = new EscalationStep(30, new BigDecimal("60"));
-        assertThatThrownBy(() -> AgentConfig.create("a", "t", Map.of(), new BigDecimal("40"), List.of(late, early),
+        assertThatThrownBy(() -> AgentConfig.create("a", "t", Map.of(), UNIVERSE, new BigDecimal("40"), List.of(late, early),
                 TradingMode.DEMO, POLICY)).isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> AgentConfig.create("a", "t", Map.of(), new BigDecimal("40"),
+        assertThatThrownBy(() -> AgentConfig.create("a", "t", Map.of(), UNIVERSE, new BigDecimal("40"),
                 List.of(new EscalationStep(30, new BigDecimal("40"))), TradingMode.DEMO, POLICY))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new EscalationStep(0, new BigDecimal("60")))

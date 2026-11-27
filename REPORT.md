@@ -134,3 +134,8 @@
 - Cambio: `trading-strategies`: `ParamSpec`, `StrategyDefinition`, `StrategyCatalog` y `BuiltinStrategies` (clases nuevas).
 - Por qué: un catálogo abierto de estrategias con sus parámetros y rangos; añadir una estrategia nueva no cambia la API ni la pantalla.
 - Cómo comprobarlo: `mvn -pl trading-strategies -am test` → 13 tests de parámetros y 8 del catálogo, 0 fallos.
+
+27.
+- Cambio: `AgentConfig` ahora guarda el universo de ETF de cada agente; `V8__agent_universe.sql` y `JdbcAgentStore` lo guardan y auditan.
+- Por qué: cada agente debe saber qué ETF puede operar (buy-and-hold usa el primero); sin esto no se puede crear desde la API.
+- Cómo comprobarlo: `mvn -pl trading-adapter-persistence -am test` → 23 tests del dominio y 11 de base de datos, 0 fallos.

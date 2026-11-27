@@ -18,16 +18,18 @@ public final class AgentConfig {
     private final String id;
     private final String strategyId;
     private final Map<String, BigDecimal> params;
+    private final List<Isin> universe;
     private final BigDecimal capital;
     private final List<EscalationStep> steps;
     private final TradingMode mode;
     private final AgentRunState state;
 
-    private AgentConfig(String id, String strategyId, Map<String, BigDecimal> params, BigDecimal capital,
-                        List<EscalationStep> steps, TradingMode mode, AgentRunState state) {
+    private AgentConfig(String id, String strategyId, Map<String, BigDecimal> params, List<Isin> universe,
+                        BigDecimal capital, List<EscalationStep> steps, TradingMode mode, AgentRunState state) {
         this.id = id;
         this.strategyId = strategyId;
         this.params = params;
+        this.universe = universe;
         this.capital = capital;
         this.steps = steps;
         this.mode = mode;
@@ -35,21 +37,22 @@ public final class AgentConfig {
     }
 
     /** Creates an ACTIVE agent after validating every field; throws IllegalArgumentException with a clear message. */
-    public static AgentConfig create(String id, String strategyId, Map<String, BigDecimal> params, BigDecimal capital,
-                                     List<EscalationStep> steps, TradingMode mode, CapitalPolicy policy) {
-        return build(id, strategyId, params, capital, steps, mode, AgentRunState.ACTIVE, policy);
+    public static AgentConfig create(String id, String strategyId, Map<String, BigDecimal> params,
+                                     List<Isin> universe, BigDecimal capital, List<EscalationStep> steps,
+                                     TradingMode mode, CapitalPolicy policy) {
+        return build(id, strategyId, params, universe, capital, steps, mode, AgentRunState.ACTIVE, policy);
     }
 
     /** Rebuilds a stored agent (any state), with the same validation. */
-    public static AgentConfig restore(String id, String strategyId, Map<String, BigDecimal> params, BigDecimal capital,
-                                      List<EscalationStep> steps, TradingMode mode, AgentRunState state,
-                                      CapitalPolicy policy) {
-        return build(id, strategyId, params, capital, steps, mode, state, policy);
+    public static AgentConfig restore(String id, String strategyId, Map<String, BigDecimal> params,
+                                      List<Isin> universe, BigDecimal capital, List<EscalationStep> steps,
+                                      TradingMode mode, AgentRunState state, CapitalPolicy policy) {
+        return build(id, strategyId, params, universe, capital, steps, mode, state, policy);
     }
 
-    private static AgentConfig build(String id, String strategyId, Map<String, BigDecimal> params, BigDecimal capital,
-                                     List<EscalationStep> steps, TradingMode mode, AgentRunState state,
-                                     CapitalPolicy policy) {
+    private static AgentConfig build(String id, String strategyId, Map<String, BigDecimal> params,
+                                     List<Isin> universe, BigDecimal capital, List<EscalationStep> steps,
+                                     TradingMode mode, AgentRunState state, CapitalPolicy policy) {
         if (id == null || !ID.matcher(id).matches()) {
             throw new IllegalArgumentException(
                     "agent id must be 1-64 chars of a-z, 0-9, '-' or '_', starting with a letter or digit: " + id);
@@ -76,7 +79,25 @@ public final class AgentConfig {
         checkSteps(capital, steps, policy);
         List<EscalationStep> canonicalSteps = steps.stream()
                 .map(s -> new EscalationStep(s.afterDays(), canonical(s.capital()))).toList();
-        return new AgentConfig(id, strategyId, Map.copyOf(copy), canonical(capital), canonicalSteps, mode, state);
+        return new AgentConfig(id, strategyId, Map.copyOf(copy), checkUniverse(universe), canonical(capital),
+                canonicalSteps, mode, state);
+    }
+
+    private static List<Isin> checkUniverse(List<Isin> universe) {
+        Objects.requireNonNull(universe, "universe");
+        if (universe.isEmpty()) {
+            throw new IllegalArgumentException("the universe needs at least one instrument");
+        }
+        java.util.Set<Isin> seen = new java.util.HashSet<>();
+        for (Isin i : universe) {
+            if (i == null) {
+                throw new IllegalArgumentException("the universe cannot contain null");
+            }
+            if (!seen.add(i)) {
+                throw new IllegalArgumentException("instrument " + i.value() + " is in the universe twice");
+            }
+        }
+        return List.copyOf(universe);
     }
 
     /** Same number without trailing zeros ("40.00" and "40" become one value), so equals does not depend on scale. */
@@ -115,13 +136,13 @@ public final class AgentConfig {
     /** Same agent, not sending new orders. Positions are kept. Stopping a stopped agent changes nothing. */
     public AgentConfig stopped() {
         return state == AgentRunState.STOPPED ? this
-                : new AgentConfig(id, strategyId, params, capital, steps, mode, AgentRunState.STOPPED);
+                : new AgentConfig(id, strategyId, params, universe, capital, steps, mode, AgentRunState.STOPPED);
     }
 
     /** Same agent, sending orders again from the next daily cycle. Resuming an active agent changes nothing. */
     public AgentConfig resumed() {
         return state == AgentRunState.ACTIVE ? this
-                : new AgentConfig(id, strategyId, params, capital, steps, mode, AgentRunState.ACTIVE);
+                : new AgentConfig(id, strategyId, params, universe, capital, steps, mode, AgentRunState.ACTIVE);
     }
 
     /** Same agent with another capital; it must satisfy the policy and still be below its next escalation step. */
@@ -129,7 +150,7 @@ public final class AgentConfig {
         Objects.requireNonNull(policy, "policy");
         checkCapital(newCapital, policy);
         checkSteps(newCapital, steps, policy);
-        return new AgentConfig(id, strategyId, params, canonical(newCapital), steps, mode, state);
+        return new AgentConfig(id, strategyId, params, universe, canonical(newCapital), steps, mode, state);
     }
 
     public String id() {
@@ -143,6 +164,11 @@ public final class AgentConfig {
     /** Read-only view. */
     public Map<String, BigDecimal> params() {
         return params;
+    }
+
+    /** Instruments the agent may trade, in order (buy-and-hold uses the first). Read-only. */
+    public List<Isin> universe() {
+        return universe;
     }
 
     public BigDecimal capital() {
@@ -164,13 +190,13 @@ public final class AgentConfig {
     @Override
     public boolean equals(Object o) {
         return o instanceof AgentConfig a && id.equals(a.id) && strategyId.equals(a.strategyId)
-                && params.equals(a.params) && capital.equals(a.capital) && steps.equals(a.steps)
+                && params.equals(a.params) && universe.equals(a.universe) && capital.equals(a.capital) && steps.equals(a.steps)
                 && mode == a.mode && state == a.state;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, strategyId, params, capital, steps, mode, state);
+        return Objects.hash(id, strategyId, params, universe, capital, steps, mode, state);
     }
 
     @Override
