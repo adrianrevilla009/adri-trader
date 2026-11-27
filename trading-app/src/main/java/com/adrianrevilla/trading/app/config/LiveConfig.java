@@ -96,9 +96,13 @@ public class LiveConfig {
     @Bean
     RunTradingDay runTradingDay(LiveProperties live, Broker liveBroker, ExecutionService liveExecution,
             OrderRepository orders, KillSwitch killSwitch, BarRepository bars, TradingDayLog dayLog,
-            ArenaJournal journal, Alerter alerter) {
+            ArenaJournal journal, Alerter alerter, EtoroProperties etoro) {
         Isin isin = new Isin(live.isin());
-        var risk = RiskManager.standard(RiskConfig.defaults(Set.of(isin)), killSwitch);
+        RiskConfig d = RiskConfig.defaults(Set.of(isin));
+        // eToro's minimum order replaces the default minimum: smaller orders are dropped, not sent and rejected later
+        var limits = new RiskConfig(d.maxWeightPerAsset(), d.maxExposure(), d.maxDailyLoss(), d.agentMaxDrawdown(),
+                d.maxParticipation(), etoro.minOrderAmount(), d.fatFingerPct(), d.whitelist());
+        var risk = RiskManager.standard(limits, killSwitch);
         return new TradingDayService(live.agentId(), new BuyAndHold(live.agentId(), isin), List.of(isin), "XETRA", bars,
                 liveExecution, orders, liveBroker, killSwitch, risk, dayLog, journal, alerter, false,
                 RealTradingGate.closed());

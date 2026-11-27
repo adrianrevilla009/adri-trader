@@ -15,6 +15,8 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  *
  * @param instruments entries like {@code IE00B4L5Y983=15348} (ISIN = eToro instrument id)
  * @param maxOrderAmount hard cap on one order; a bigger one is rejected before anything is sent
+ * @param minOrderAmount smallest order eToro accepts (10 USD, verified 2026-11-27: it accepts a smaller request and
+ *     rejects it afterwards with error 720); the risk manager drops smaller orders
  */
 @ConfigurationProperties("trading.etoro")
 public record EtoroProperties(
@@ -25,6 +27,7 @@ public record EtoroProperties(
         @DefaultValue("60") int maxReadsPerMinute,
         @DefaultValue("20") int maxWritesPerMinute,
         @DefaultValue("10") BigDecimal maxOrderAmount,
+        @DefaultValue("10") BigDecimal minOrderAmount,
         @DefaultValue("") List<String> instruments) {
 
     public EtoroProperties {
@@ -37,6 +40,9 @@ public record EtoroProperties(
         }
         if (maxOrderAmount.signum() <= 0) {
             throw new IllegalArgumentException("trading.etoro.max-order-amount must be positive");
+        }
+        if (minOrderAmount.signum() <= 0 || minOrderAmount.compareTo(maxOrderAmount) > 0) {
+            throw new IllegalArgumentException("trading.etoro.min-order-amount must be positive and not above the cap");
         }
         instruments = instruments.stream().filter(e -> !e.isBlank()).toList();
         instrumentIds(instruments); // fails the start on a malformed entry

@@ -89,3 +89,8 @@
 - Cambio: `EToroBroker.lookup`: el precio medio de una compra ahora es importe / unidades (en la moneda de la cuenta).
 - Por qué: la prueba completa con la demo se paraba en la reconciliación (esperadas 0,07843 unidades, eToro 0,071552) porque el importe estaba en USD y el precio en EUR.
 - Cómo comprobarlo: `mvn -pl trading-broker-etoro -am test -Dtest=EToroBrokerTest` → 40 tests, 0 fallos; el ciclo completo en demo reconcilia sin diferencias.
+
+18.
+- Cambio: `EtoroProperties` (campo `minOrderAmount`), `LiveConfig` (el riesgo usa ese mínimo) y `application.yml`.
+- Por qué: en la prueba con la demo el bot envió una compra de 3,31; eToro la aceptó y la rechazó después (mínimo 10 USD). Ahora el riesgo descarta las órdenes menores de 10 antes de enviarlas.
+- Cómo comprobarlo: `mvn -pl trading-app -am test -Dtest=LivePropertiesTest` → 9 tests, 0 fallos; en la demo, un día sin orden pequeña: `sent 0` y la orden rechazada anterior queda `REJECTED`.

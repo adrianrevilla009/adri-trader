@@ -46,6 +46,8 @@ trading:
     # DEMO only: real orders are refused at start (ADR-0028). Hard cap per order, in the account currency.
     mode: DEMO
     max-order-amount: 10
+    # Smallest order eToro accepts (10 USD); the risk manager drops smaller ones instead of sending them.
+    min-order-amount: 10
     # ISIN=eToro instrument id, comma separated. Ids seen in the eToro catalogue; the ISINs are UNVERIFIED (phase 0).
     instruments: ${TRADING_ETORO_INSTRUMENTS:}
   live:
