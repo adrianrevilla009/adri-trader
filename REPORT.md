@@ -164,3 +164,8 @@
 - Cambio: carpeta `frontend/` (React + TypeScript + Vite), job `frontend` en `ci.yml`, Dependabot para npm, objetivos `make ui`, `make ui-install`, `make ui-test`, y la sección «Agentes desde la pantalla» del runbook.
 - Por qué: la pantalla para crear, cambiar, parar y reanudar agentes y ver su historial, con las reglas que aplica el servidor explicadas.
 - Cómo comprobarlo: `make ui-test` → 21 tests (api, formulario, pantalla), tipos y build sin errores; `npm audit` sin hallazgos.
+
+33.
+- Cambio: `CLAUDE.md`, `docs/PRD.md`, `docs/TRD.md` y `docs/adr/0028` (nota de sustitución parcial por la ADR-0030).
+- Por qué: la documentación decía «sin frontend» y un solo agente; ahora hay pantalla y varios agentes, y lo no probado en eToro queda declarado.
+- Cómo comprobarlo: leer los cambios; no cambia código.

@@ -153,4 +153,4 @@ Solo se arriesga capital que se pueda perder sin afectar a la vida diaria; el ca
 
 ## 11. Encaje con ai-project-factory
 
-Este PRD y el brief son la entrada del intake (Gate 0) y del plan (Gate 1). Fases 2 y 3 por módulo con su PR (Gates 2 y 3); Gate 4 (release) = puerta al dinero real. Excepciones a registrar: Docker Compose en lugar de Kubernetes, solo PostgreSQL, sin frontend, sin AWS/Terraform/Vault/Keycloak/Istio.
+Este PRD y el brief son la entrada del intake (Gate 0) y del plan (Gate 1). Fases 2 y 3 por módulo con su PR (Gates 2 y 3); Gate 4 (release) = puerta al dinero real. Excepciones a registrar: Docker Compose en lugar de Kubernetes, solo PostgreSQL, frontend mínimo solo para gestionar agentes (ADR-0030, `frontend/`), sin AWS/Terraform/Vault/Keycloak/Istio.

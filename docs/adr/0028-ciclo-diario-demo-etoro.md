@@ -1,6 +1,6 @@
 # 0028. Ciclo diario en la cuenta demo de eToro
 
-- **Estado:** Aceptada
+- **Estado:** Aceptada. **Parcialmente sustituida por [ADR-0030](0030-agentes-dinamicos-api-ui.md):** el agente único y el «capital visible» (`CashCappedBroker`) pasan a ser varios agentes en base de datos, cada uno con su presupuesto; lo demás sigue vigente.
 - **Fecha:** 2026-11-27
 - **Fuente:** decisión del titular («hazlo todo de forma autónoma», con tope de gasto en pruebas); [PRD](../PRD.md) fase 3;
   [docs/fase0-verificacion-etoro.md](../fase0-verificacion-etoro.md); [ADR-0008](0008-escalado.md)

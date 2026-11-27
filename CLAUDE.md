@@ -21,10 +21,12 @@ El proyecto adopta las guías de <https://github.com/adrianrevilla009/ai-project
 | `trading-application` | Casos de uso entre contextos: puertos de entrada (`application.port.in`), servicios (`application.service`), puertos de salida (`application.port.out`) y DTO de lectura (`application.read`) |
 | `trading-adapter-*` | Una tecnología cada uno: persistencia (JDBC y Flyway), marketdata, notification, web, metrics |
 | `trading-broker-etoro` | Adaptador de eToro. `trading-broker-sim` es **dominio** (modelo del mercado) |
+| `frontend/` | Pantalla React para gestionar agentes (ADR-0030); fuera de Maven, habla con la API local de `trading-adapter-web`. Sin lógica de negocio: el servidor valida todo |
 | `trading-app` | Solo arranque: `@SpringBootApplication`, `app.config` (cableado, `@ConfigurationProperties` en records), disparadores `@Scheduled`, CLI. **Sin lógica de negocio** |
 
 Reglas al añadir código:
 
+- Los agentes son **datos** (base de datos), no configuración: se crean y paran por la API (`ManageAgents`/`QueryAgents`) y una estrategia nueva es una `StrategyDefinition` registrada en el catálogo (ADR-0030). El modo es DEMO; PROD queda cerrado hasta la fase 2 (MFA + ADR).
 - Un puerto nuevo es una **interfaz** en `…application.port.in|out` (o en `domain` si el dominio lo necesita); su implementación va en
   un adaptador. Un caso de uso nuevo = un puerto de entrada + un servicio que lo implementa.
 - Lectura y escritura separadas (CQRS de nivel 1): consultas por puertos de lectura con DTO propios; los comandos son casos de uso.
@@ -39,6 +41,7 @@ corrige el código o escribe un ADR que cambie la regla.** Cada regla tiene una 
 ## Comandos
 
 - `make up` levanta todo (PostgreSQL, bot, copias, Prometheus, Alertmanager, Grafana, Tempo, OTel); `make down`, `make reset`.
+- `make ui-install` / `make ui` / `make ui-test`: la pantalla de agentes (`frontend/`, necesita `TRADING_API_TOKEN` en el bot).
 - `make test` = `mvn verify` (Testcontainers: necesita Docker). `make check-ops` valida Compose y alertas. `make semgrep` pasa las políticas estáticas de la fábrica (una excepción lleva `// nosemgrep: regla -- motivo`). `make smoke` prueba la pila completa.
 - `make hooks` activa los hooks locales (commits convencionales, sin secretos, sin commits ni pushes a `main`).
 
@@ -54,4 +57,4 @@ corrige el código o escribe un ADR que cambie la regla.** Cada regla tiene una 
 
 La API REAL de eToro (la DEMO está verificada para compra, cierre, estado y cancelación; ver `docs/fase0-verificacion-etoro.md`); los ISIN de `config/dev-universe.env` (eToro no los devuelve; EUNK no existe allí); la entrega de
 alertas a Telegram; la VM de Azure y `scripts/deploy.sh` (nunca ejecutados); los flujos de release y promoción (sin primera
-etiqueta). Ningún criterio de salida de fase está cumplido.
+etiqueta). Varios agentes a la vez en la cuenta demo de eToro, y la pantalla de agentes contra el bot real (solo probados con simuladores, bases de datos de prueba y una API simulada; ADR-0030). Ningún criterio de salida de fase está cumplido.
