@@ -38,7 +38,7 @@
     <jackson-bom.version>2.23.0</jackson-bom.version>
     <micrometer-bom.version>1.15.12</micrometer-bom.version>
     <spring-framework-bom.version>6.2.19</spring-framework-bom.version>
-    <postgresql.override.version>42.7.14</postgresql.override.version>
+    <postgresql.override.version>42.7.15</postgresql.override.version>
     <archunit.version>1.5.1</archunit.version>
     <maven-enforcer-plugin.version>3.7.0</maven-enforcer-plugin.version>
   </properties>
@@ -200,7 +200,7 @@
         <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-resources-plugin</artifactId><version>3.5.0</version></plugin>
         <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-install-plugin</artifactId><version>3.2.0</version></plugin>
         <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-deploy-plugin</artifactId><version>3.2.0</version></plugin>
-        <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-site-plugin</artifactId><version>3.12.1</version></plugin>
+        <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-site-plugin</artifactId><version>3.22.0</version></plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-surefire-plugin</artifactId>
