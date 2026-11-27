@@ -1,7 +1,7 @@
 # Market data is never committed: `make up` starts the whole stack (database, bot, nightly backups, Prometheus,
 # Alertmanager, Grafana, Tempo, OpenTelemetry collector). The bot downloads the history on its first start
 # (idempotent; later starts only add new days). Everything lives in docker volumes.
-.PHONY: init up up-core down reset logs ps psql test hooks check-ops smoke semgrep
+.PHONY: init up up-core down reset logs ps psql test hooks check-ops smoke semgrep ui-install ui ui-test
 
 ## Create .env with generated passwords (once; never overwrites)
 init:
@@ -51,3 +51,14 @@ smoke:
 hooks:
 	git config core.hooksPath .githooks
 	@echo "Hooks enabled"
+
+## Screen that manages agents (ADR-0030): install once, then run it on http://127.0.0.1:5173 (needs the API: TRADING_API_TOKEN)
+ui-install:
+	cd frontend && npm ci --ignore-scripts
+
+ui:
+	cd frontend && npm run dev
+
+## Typecheck, tests and build of the screen (the same checks CI runs)
+ui-test:
+	cd frontend && npm run typecheck && npm test && npm run build

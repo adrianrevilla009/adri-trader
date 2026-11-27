@@ -159,3 +159,8 @@
 - Cambio: `QueryAgents.limits()`, `LimitsView` y la ruta `GET /api/limits`.
 - Por qué: la pantalla muestra el capital mínimo (40) y los límites de orden sin adivinarlos; el servidor los sigue aplicando igual.
 - Cómo comprobarlo: `mvn -pl trading-app -am test -Dtest=AgentServiceTest,AgentsApiServerTest,ApiContextTest` → 25 tests, 0 fallos.
+
+32.
+- Cambio: carpeta `frontend/` (React + TypeScript + Vite), job `frontend` en `ci.yml`, Dependabot para npm, objetivos `make ui`, `make ui-install`, `make ui-test`, y la sección «Agentes desde la pantalla» del runbook.
+- Por qué: la pantalla para crear, cambiar, parar y reanudar agentes y ver su historial, con las reglas que aplica el servidor explicadas.
+- Cómo comprobarlo: `make ui-test` → 21 tests (api, formulario, pantalla), tipos y build sin errores; `npm audit` sin hallazgos.
