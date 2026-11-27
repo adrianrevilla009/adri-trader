@@ -38,7 +38,7 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: maven
-      - uses: github/codeql-action/init@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4
+      - uses: github/codeql-action/init@915412ff23e8b7659517e607487dbeae018f2934 # v4
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
@@ -46,6 +46,6 @@ jobs:
       - name: Build (no tests, they run in CI)
         if: matrix.language == 'java-kotlin'
         run: mvn -B -q -DskipTests -Djacoco.skip=true package
-      - uses: github/codeql-action/analyze@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4
+      - uses: github/codeql-action/analyze@915412ff23e8b7659517e607487dbeae018f2934 # v4
         with:
           category: /language:${{ matrix.language }}
