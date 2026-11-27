@@ -73,16 +73,45 @@ public final class InMemoryOrderRepository implements OrderRepository {
 
     @Override
     public synchronized Map<Isin, BigDecimal> netUnits(String agentId) {
+        return netUnitsOf(agentId);
+    }
+
+    @Override
+    public synchronized Map<Isin, BigDecimal> netUnitsAll() {
+        return netUnitsOf(null);
+    }
+
+    /** @param agentId the agent, or null for every agent */
+    private Map<Isin, BigDecimal> netUnitsOf(String agentId) {
         Map<Isin, BigDecimal> net = new HashMap<>();
         for (Fill f : fills) {
             OrderRequest req = orders.get(f.orderId()).request();
-            if (!req.agentId().equals(agentId)) {
+            if (agentId != null && !req.agentId().equals(agentId)) {
                 continue;
             }
             BigDecimal signed = req.side() == OrderRequest.Side.BUY ? f.quantity() : f.quantity().negate();
             net.merge(req.isin(), signed, BigDecimal::add);
         }
         return net;
+    }
+
+    @Override
+    public synchronized BigDecimal committedAmount(String agentId) {
+        BigDecimal total = BigDecimal.ZERO;
+        for (Fill f : fills) {
+            OrderRequest req = orders.get(f.orderId()).request();
+            if (req.agentId().equals(agentId)) {
+                total = req.side() == OrderRequest.Side.BUY ? total.add(f.amountEur()) : total.subtract(f.amountEur());
+            }
+        }
+        for (OrderRecord r : orders.values()) {
+            OrderRequest req = r.request();
+            if (req.agentId().equals(agentId) && req.side() == OrderRequest.Side.BUY
+                    && OrderStateMachine.isOpen(r.state())) {
+                total = total.add(req.amountEur().subtract(recordedFillAmount(req.internalId())).max(BigDecimal.ZERO));
+            }
+        }
+        return total;
     }
 
     public synchronized int size() {
