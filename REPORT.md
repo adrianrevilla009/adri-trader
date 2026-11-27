@@ -119,3 +119,8 @@
 - Cambio: `V7__agent.sql`, `AgentStore` (puerto) y `JdbcAgentStore` (adaptador), más `AgentConfig` que ignora ceros de más (200 = 200.00).
 - Por qué: guardar los agentes y cada cambio de su configuración (quién, cuándo, valor anterior y nuevo) en la base de datos.
 - Cómo comprobarlo: `mvn -pl trading-adapter-persistence -am test` → 10 tests nuevos de base de datos y 21 del dominio, 0 fallos.
+
+24.
+- Cambio: `JdbcAgentStore` (SQL en bloques de texto y sin `Optional.get`).
+- Por qué: la revisión estática (Semgrep) rechazaba esas dos formas de escribir; el comportamiento no cambia.
+- Cómo comprobarlo: `bash scripts/semgrep.sh` → sin hallazgos; `JdbcAgentStoreTest` en verde.

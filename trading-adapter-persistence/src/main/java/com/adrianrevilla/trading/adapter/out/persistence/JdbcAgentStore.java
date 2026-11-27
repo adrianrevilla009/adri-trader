@@ -45,19 +45,19 @@ public class JdbcAgentStore implements AgentStore {
         tx.executeWithoutResult(status -> {
             // Lock the row so two saves of the same agent cannot interleave their audit rows.
             jdbc.queryForList("SELECT id FROM agent WHERE id = ? FOR UPDATE", agent.id());
-            Optional<AgentConfig> before = find(agent.id());
-            if (before.isEmpty()) {
+            AgentConfig old = find(agent.id()).orElse(null);
+            if (old == null) {
                 insert(agent);
                 audit(agent.id(), changedBy, "created", null, agent.strategyId());
                 return;
             }
-            AgentConfig old = before.get();
             if (old.equals(agent)) {
                 return;
             }
             writeChangedFields(old, agent, changedBy);
-            jdbc.update("UPDATE agent SET strategy_id = ?, capital = ?, mode = ?, state = ?, updated_at = now() "
-                            + "WHERE id = ?", agent.strategyId(), agent.capital(), agent.mode().name(),
+            jdbc.update("""
+                    UPDATE agent SET strategy_id = ?, capital = ?, mode = ?, state = ?, updated_at = now()
+                    WHERE id = ?""", agent.strategyId(), agent.capital(), agent.mode().name(),
                     agent.state().name(), agent.id());
             if (!paramsText(old).equals(paramsText(agent))) {
                 jdbc.update("DELETE FROM agent_param WHERE agent_id = ?", agent.id());
@@ -112,8 +112,9 @@ public class JdbcAgentStore implements AgentStore {
     }
 
     private void audit(String agentId, String by, String field, String oldValue, String newValue) {
-        jdbc.update("INSERT INTO agent_config_audit (agent_id, changed_by, field, old_value, new_value) "
-                + "VALUES (?, ?, ?, ?, ?)", agentId, by, field, oldValue, newValue);
+        jdbc.update("""
+                INSERT INTO agent_config_audit (agent_id, changed_by, field, old_value, new_value)
+                VALUES (?, ?, ?, ?, ?)""", agentId, by, field, oldValue, newValue);
     }
 
     /** Stable text of the params (sorted by name, numbers without trailing zeros) used to compare and to audit. */
@@ -174,8 +175,9 @@ public class JdbcAgentStore implements AgentStore {
 
     @Override
     public List<AgentAuditEntry> audit(String agentId) {
-        return jdbc.query("SELECT agent_id, changed_by, field, old_value, new_value FROM agent_config_audit "
-                        + "WHERE agent_id = ? ORDER BY id",
+        return jdbc.query("""
+                        SELECT agent_id, changed_by, field, old_value, new_value FROM agent_config_audit
+                        WHERE agent_id = ? ORDER BY id""",
                 (rs, i) -> new AgentAuditEntry(rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4),
                         rs.getString(5)), agentId);
     }
