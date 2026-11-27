@@ -314,15 +314,13 @@ public final class EToroBroker implements Broker {
             JsonNode n = json.readTree(r.body());
             BigDecimal amount = BigDecimal.ZERO;
             BigDecimal units = BigDecimal.ZERO;
-            BigDecimal weighted = BigDecimal.ZERO;
             for (JsonNode e : n.path("positionExecutions")) {
-                JsonNode open = e.path("openingData");
-                BigDecimal u = decimal(open, "units");
                 amount = amount.add(decimal(e, "initialExposureAccountCurrency"));
-                units = units.add(u);
-                weighted = weighted.add(decimal(open, "avgPrice").multiply(u));
+                units = units.add(decimal(e.path("openingData"), "units"));
             }
-            BigDecimal price = units.signum() == 0 ? null : weighted.divide(units, 6, java.math.RoundingMode.HALF_UP);
+            // Price in the ACCOUNT currency (amount / units), not eToro's avgPrice (asset currency, EUR): the ledger
+            // derives units as amount / price and must get eToro's real units back.
+            BigDecimal price = units.signum() == 0 ? null : amount.divide(units, 10, java.math.RoundingMode.HALF_UP);
             return Optional.of(new BrokerOrder(internalId, state(n.path("status").path("id").asInt(-1)), amount, units,
                     price));
         } catch (IOException e) {

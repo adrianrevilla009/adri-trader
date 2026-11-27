@@ -535,7 +535,12 @@ class EToroBrokerTest {
         var found = b.lookup(order.internalId()).orElseThrow();
         assertThat(found.state()).isEqualTo(OrderState.FILLED);
         assertThat(found.filledQuantity()).isEqualByComparingTo("0.072374");
-        assertThat(found.averagePrice()).isEqualByComparingTo("125.922");
+        // The ledger derives units as amount / price. Amount is in the ACCOUNT currency (USD), so the price must be too
+        // (amount / units), not eToro's avgPrice in the asset currency (EUR); otherwise the reconciliation halts
+        // trading (found live on 2026-11-27: expected 0.07843, eToro 0.071552).
+        assertThat(found.filledAmountEur().divide(found.averagePrice(), 6, java.math.RoundingMode.HALF_UP))
+                .isEqualByComparingTo("0.072374");
+        assertThat(found.averagePrice()).isNotEqualByComparingTo("125.922");
         assertThat(seen.get(1).path()).isEqualTo("/api/v2/trading/info/demo/orders:lookup");
     }
 
