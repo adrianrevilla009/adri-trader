@@ -129,3 +129,8 @@
 - Cambio: `AgentBudgetBroker` (core), `OrderRepository.netUnitsAll/committedAmount` (memoria y JDBC), `ExecutionService.reconcileAll`, y `TradingDayService` ahora reconcilia toda la cuenta.
 - Por qué: varios agentes comparten una cuenta de eToro; antes cada uno comparaba la cuenta entera con su libro y se paraban entre sí, y el efectivo no bajaba al gastar.
 - Cómo comprobarlo: `mvn -pl trading-app -am test` → test nuevo de dos agentes en la misma cuenta, más 10, 5, 3 y 5 tests nuevos, 0 fallos.
+
+26.
+- Cambio: `trading-strategies`: `ParamSpec`, `StrategyDefinition`, `StrategyCatalog` y `BuiltinStrategies` (clases nuevas).
+- Por qué: un catálogo abierto de estrategias con sus parámetros y rangos; añadir una estrategia nueva no cambia la API ni la pantalla.
+- Cómo comprobarlo: `mvn -pl trading-strategies -am test` → 13 tests de parámetros y 8 del catálogo, 0 fallos.
