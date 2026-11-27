@@ -64,3 +64,8 @@
 - Cambio: `EToroBroker` (compra, venta por cierre de posición, estado, cartera) y `EToroConfig` (rutas nuevas), con tests y una prueba opcional `EToroDemoLiveTest`.
 - Por qué: el código antiguo enviaba un cuerpo que eToro rechaza y no sabía vender ni leer la cartera real; ahora usa lo comprobado en demo, con tope de 10 por orden.
 - Cómo comprobarlo: `mvn -pl trading-broker-etoro -am test` → 40 tests, 0 fallos; con `ETORO_LIVE_DEMO=1` la prueba real compra 10 USD y los cierra en demo (cuenta demo limpia al final).
+
+13.
+- Cambio: `LiveConfig`, `EtoroProperties`, `LiveProperties` (trading-app), `CashCappedBroker` (trading-core), `application.yml`, `docker-compose.yml` y el ADR-0028.
+- Por qué: el bot ya puede correr cada día (19:15) contra la cuenta demo de eToro, con tope de 10 por orden, solo modo DEMO y apagado por defecto.
+- Cómo comprobarlo: `mvn -pl trading-app -am test -Dtest=LivePropertiesTest,CashCappedBrokerTest` → 11 tests, 0 fallos; el CI arranca la aplicación con el ciclo encendido (`LiveContextTest`).

@@ -7,6 +7,7 @@ import com.adrianrevilla.trading.adapter.out.notification.LoggingAlerter;
 import com.adrianrevilla.trading.adapter.out.persistence.JdbcKillSwitch;
 import com.adrianrevilla.trading.adapter.out.persistence.JdbcOrderRepository;
 import com.adrianrevilla.trading.app.config.DataConfig;
+import com.adrianrevilla.trading.app.config.LiveConfig;
 import com.adrianrevilla.trading.core.application.port.out.Alerter;
 import com.adrianrevilla.trading.core.domain.KillSwitch;
 import com.adrianrevilla.trading.execution.application.port.out.OrderRepository;
@@ -48,6 +49,7 @@ class ApplicationContextTest {
         assertThat(context.getBean(Alerter.class)).isInstanceOf(LoggingAlerter.class); // no Telegram token set
         assertThat(context.getBean(KillSwitchServer.class)).isNotNull();
         assertThat(context.getBeansOfType(DataConfig.ScheduledIngestion.class)).isEmpty(); // disabled by default
+        assertThat(context.getBeansOfType(LiveConfig.ScheduledLiveDay.class)).isEmpty();   // live cycle off by default
     }
 
     @Test

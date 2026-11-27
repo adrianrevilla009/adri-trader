@@ -31,3 +31,4 @@ Cada fila de «Decisiones cerradas» del [brief](../brief.md) tiene su ADR (0001
 | [0025](0025-arquitectura-hexagonal.md) | Arquitectura hexagonal en multimódulo, DDD táctico y CQRS de nivel 1 |
 | [0026](0026-despliegue-compose-observabilidad.md) | Despliegue con Docker Compose, observabilidad y VM en Azure |
 | [0027](0027-pipeline-ci-cd.md) | Pipeline de CI/CD y seguridad de la cadena de suministro |
+| [0028](0028-ciclo-diario-demo-etoro.md) | Ciclo diario en la cuenta demo de eToro (solo demo, tope por orden) |
