@@ -139,3 +139,8 @@
 - Cambio: `AgentConfig` ahora guarda el universo de ETF de cada agente; `V8__agent_universe.sql` y `JdbcAgentStore` lo guardan y auditan.
 - Por qué: cada agente debe saber qué ETF puede operar (buy-and-hold usa el primero); sin esto no se puede crear desde la API.
 - Cómo comprobarlo: `mvn -pl trading-adapter-persistence -am test` → 23 tests del dominio y 11 de base de datos, 0 fallos.
+
+28.
+- Cambio: `AgentsDayService`, `LiveAgentDayFactory`, `RunAgentsDay`, `AgentsConfig` y `LiveConfig`: el ciclo diario ahora ejecuta todos los agentes activos de la base de datos.
+- Por qué: se pueden tener varios agentes con estrategias distintas en la misma cuenta demo; si uno falla, los demás siguen. El agente de antes (`live-demo`) se crea solo si no hay ninguno.
+- Cómo comprobarlo: `mvn verify` → tests nuevos (4 de AgentsDayService, 4 de LiveAgentDayFactory, 1 de contexto), 0 fallos.

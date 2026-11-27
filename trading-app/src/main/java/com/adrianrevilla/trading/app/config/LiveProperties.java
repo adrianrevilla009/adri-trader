@@ -8,8 +8,9 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 /**
  * The daily live cycle against the eToro demo account (prefix {@code trading.live}, ADR-0028). Off by default.
  *
- * @param isin the instrument the agent holds (it must also have an eToro id in {@code trading.etoro.instruments})
- * @param capital what the agent may use; the demo account holds far more, the cash it sees is capped to this
+ * @param isin optional: the instrument of the first agent, created only while no agent exists (ADR-0030); it must also
+ *     have an eToro id in {@code trading.etoro.instruments}
+ * @param capital capital of that first agent; the demo account holds far more, each agent sees only its own budget
  */
 @ConfigurationProperties("trading.live")
 public record LiveProperties(
@@ -32,9 +33,6 @@ public record LiveProperties(
         }
         if (!strategy.equals("buy-and-hold")) {
             throw new IllegalArgumentException("trading.live.strategy must be buy-and-hold, was " + strategy);
-        }
-        if (enabled && isin.isBlank()) {
-            throw new IllegalArgumentException("trading.live.isin is required when the live cycle is enabled");
         }
     }
 
