@@ -144,3 +144,18 @@
 - Cambio: `AgentsDayService`, `LiveAgentDayFactory`, `RunAgentsDay`, `AgentsConfig` y `LiveConfig`: el ciclo diario ahora ejecuta todos los agentes activos de la base de datos.
 - Por qué: se pueden tener varios agentes con estrategias distintas en la misma cuenta demo; si uno falla, los demás siguen. El agente de antes (`live-demo`) se crea solo si no hay ninguno.
 - Cómo comprobarlo: `mvn verify` → tests nuevos (4 de AgentsDayService, 4 de LiveAgentDayFactory, 1 de contexto), 0 fallos.
+
+29.
+- Cambio: `AgentService`, `ModeService`, puertos `ManageAgents`, `QueryAgents`, `ManageMode` y los DTO de lectura (`AgentView`, `StrategyView`, `AuditView`, `ModeView`).
+- Por qué: son los casos de uso que usará la API: crear, cambiar, parar y reanudar agentes, ver el catálogo y pedir el modo (PROD se rechaza con un motivo claro).
+- Cómo comprobarlo: `mvn -pl trading-app -am test` → 11 tests de agentes y 10 de modo, 0 fallos; ArchUnit sigue en verde.
+
+30.
+- Cambio: `AgentsApiServer` (adaptador web), `ApiConfig`, `ApiProperties`, `application.yml`, `docker-compose.yml` y `.env.example` (nueva variable `TRADING_API_TOKEN`).
+- Por qué: la API JSON para crear, cambiar, parar y reanudar agentes, ver el catálogo y pedir el modo; solo escucha en local y exige un token; PROD responde 409.
+- Cómo comprobarlo: `mvn -pl trading-app -am test -Dtest=ApiContextTest,AgentsApiServerTest` → 12 tests HTTP y 2 de extremo a extremo con base de datos real, 0 fallos; `bash scripts/check-ops.sh` → OK.
+
+31.
+- Cambio: `QueryAgents.limits()`, `LimitsView` y la ruta `GET /api/limits`.
+- Por qué: la pantalla muestra el capital mínimo (40) y los límites de orden sin adivinarlos; el servidor los sigue aplicando igual.
+- Cómo comprobarlo: `mvn -pl trading-app -am test -Dtest=AgentServiceTest,AgentsApiServerTest,ApiContextTest` → 25 tests, 0 fallos.

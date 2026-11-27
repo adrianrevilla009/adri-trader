@@ -51,6 +51,9 @@ services:
       ETORO_API_KEY: ${ETORO_API_KEY:-}
       ETORO_USER_KEY: ${ETORO_USER_KEY:-}
       KILL_SWITCH_TOKEN: ${KILL_SWITCH_TOKEN:-}
+      # JSON API of the agents screen (ADR-0030): off while the token is empty. Published on the host loopback only.
+      TRADING_API_TOKEN: ${TRADING_API_TOKEN:-}
+      TRADING_API_BIND_ADDRESS: 0.0.0.0
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
       # Market data: Yahoo (read-only GET requests). The first start downloads the history; later starts only add new days.
@@ -73,6 +76,8 @@ services:
     volumes:
       - reports:/app/reports
       - backups:/backups:ro
+    ports:
+      - "127.0.0.1:8100:8100"          # agents API, local only (needs TRADING_API_TOKEN)
     mem_limit: 768m
     networks: [backend]
 
