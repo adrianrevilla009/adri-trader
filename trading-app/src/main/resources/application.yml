@@ -58,6 +58,12 @@ trading:
     isin: ${TRADING_LIVE_ISIN:}
     capital: 40
     cron: "0 15 19 * * MON-FRI"
+  api:
+    # JSON API that creates, changes, stops and resumes agents (ADR-0030). Disabled unless a token of 16+ characters is set.
+    token: ${TRADING_API_TOKEN:}
+    port: 8100
+    bind-address: ${TRADING_API_BIND_ADDRESS:127.0.0.1}
+    allowed-origin: ${TRADING_API_ALLOWED_ORIGIN:http://localhost:5173}
   killswitch:
     # Endpoint disabled unless a token of 16+ characters is set. Loopback only.
     token: ${KILL_SWITCH_TOKEN:}
