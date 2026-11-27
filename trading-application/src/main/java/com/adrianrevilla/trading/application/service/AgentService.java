@@ -5,6 +5,7 @@ import com.adrianrevilla.trading.application.port.in.QueryAgents;
 import com.adrianrevilla.trading.application.port.out.AgentStore;
 import com.adrianrevilla.trading.application.read.AgentView;
 import com.adrianrevilla.trading.application.read.AuditView;
+import com.adrianrevilla.trading.application.read.LimitsView;
 import com.adrianrevilla.trading.application.read.StrategyView;
 import com.adrianrevilla.trading.core.domain.AgentConfig;
 import com.adrianrevilla.trading.core.domain.CapitalPolicy;
@@ -113,6 +114,11 @@ public class AgentService implements ManageAgents, QueryAgents {
         return catalog.list().stream().map(d -> new StrategyView(d.id(), d.name(), d.description(),
                 d.params().stream().map(p -> new StrategyView.Param(p.name(), p.description(), p.defaultValue(),
                         p.min(), p.max(), p.integer())).toList())).toList();
+    }
+
+    @Override
+    public LimitsView limits() {
+        return new LimitsView(policy.minimumCapital(), policy.minOrderAmount(), policy.maxWeightPerAsset());
     }
 
     @Override

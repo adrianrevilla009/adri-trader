@@ -113,6 +113,12 @@ class AgentsApiServerTest {
         }
 
         @Override
+        public com.adrianrevilla.trading.application.read.LimitsView limits() {
+            return new com.adrianrevilla.trading.application.read.LimitsView(new BigDecimal("40"), BigDecimal.TEN,
+                    new BigDecimal("0.25"));
+        }
+
+        @Override
         public List<String> instruments() {
             return List.of("IE00B4L5Y983");
         }
@@ -225,6 +231,7 @@ class AgentsApiServerTest {
         assertThat(strategies.get(0).get("id").asText()).isEqualTo("trend");
         assertThat(strategies.get(0).get("params").get(0).get("integer").asBoolean()).isTrue();
         assertThat(authed("GET", "/api/instruments", null).json().get(0).asText()).isEqualTo("IE00B4L5Y983");
+        assertThat(authed("GET", "/api/limits", null).json().get("minimumCapital").decimalValue()).isEqualByComparingTo("40");
     }
 
     // ---- agents ----

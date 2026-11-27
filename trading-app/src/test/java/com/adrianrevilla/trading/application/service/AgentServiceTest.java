@@ -172,5 +172,8 @@ class AgentServiceTest {
         assertThat(service.strategies().stream().filter(s -> s.id().equals("trend")).findFirst().orElseThrow().params())
                 .extracting(p -> p.name()).containsExactly("window", "band");
         assertThat(service.instruments()).containsExactlyInAnyOrder(A, B);
+        assertThat(service.limits().minimumCapital()).isEqualByComparingTo("40");
+        assertThat(service.limits().minOrderAmount()).isEqualByComparingTo("10");
+        assertThat(service.limits().maxWeightPerAsset()).isEqualByComparingTo("0.25");
     }
 }

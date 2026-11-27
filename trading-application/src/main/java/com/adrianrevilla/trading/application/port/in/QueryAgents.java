@@ -2,6 +2,7 @@ package com.adrianrevilla.trading.application.port.in;
 
 import com.adrianrevilla.trading.application.read.AgentView;
 import com.adrianrevilla.trading.application.read.AuditView;
+import com.adrianrevilla.trading.application.read.LimitsView;
 import com.adrianrevilla.trading.application.read.StrategyView;
 import java.util.List;
 import java.util.Optional;
@@ -18,6 +19,9 @@ public interface QueryAgents {
 
     /** The strategy catalog with the description of every parameter. */
     List<StrategyView> strategies();
+
+    /** Capital and order limits that every agent must respect. */
+    LimitsView limits();
 
     /** ISINs the broker can trade: the only ones an agent universe may use. */
     List<String> instruments();

@@ -163,6 +163,9 @@ public final class AgentsApiServer {
         } else if (p.length == 3 && p[2].equals("strategies")) {
             allow(method, "GET");
             reply(ex, 200, queries.strategies());
+        } else if (p.length == 3 && p[2].equals("limits")) {
+            allow(method, "GET");
+            reply(ex, 200, queries.limits());
         } else if (p.length == 3 && p[2].equals("instruments")) {
             allow(method, "GET");
             reply(ex, 200, queries.instruments());

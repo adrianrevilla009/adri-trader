@@ -154,3 +154,8 @@
 - Cambio: `AgentsApiServer` (adaptador web), `ApiConfig`, `ApiProperties`, `application.yml`, `docker-compose.yml` y `.env.example` (nueva variable `TRADING_API_TOKEN`).
 - Por qué: la API JSON para crear, cambiar, parar y reanudar agentes, ver el catálogo y pedir el modo; solo escucha en local y exige un token; PROD responde 409.
 - Cómo comprobarlo: `mvn -pl trading-app -am test -Dtest=ApiContextTest,AgentsApiServerTest` → 12 tests HTTP y 2 de extremo a extremo con base de datos real, 0 fallos; `bash scripts/check-ops.sh` → OK.
+
+31.
+- Cambio: `QueryAgents.limits()`, `LimitsView` y la ruta `GET /api/limits`.
+- Por qué: la pantalla muestra el capital mínimo (40) y los límites de orden sin adivinarlos; el servidor los sigue aplicando igual.
+- Cómo comprobarlo: `mvn -pl trading-app -am test -Dtest=AgentServiceTest,AgentsApiServerTest,ApiContextTest` → 25 tests, 0 fallos.
