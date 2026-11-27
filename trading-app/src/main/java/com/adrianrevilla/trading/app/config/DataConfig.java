@@ -110,6 +110,7 @@ public class DataConfig {
 
         /** One-off backfill: set trading.ingestion.run-on-startup=true for the first run. */
         @org.springframework.context.event.EventListener(org.springframework.boot.context.event.ApplicationReadyEvent.class)
+        @org.springframework.core.annotation.Order(1)   // before the live day, which needs today's data
         public void onReady() {
             if (runOnStartup) {
                 job.run();

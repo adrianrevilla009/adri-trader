@@ -79,3 +79,8 @@
 - Cambio: `docs/adr/0029-yahoo-fuente-historico.md` y el índice de ADR.
 - Por qué: faltaba cerrar la elección de la fuente de datos históricos. Se comparó Yahoo con las velas de eToro del último año: diferencia media entre 0,05 % y 0,14 %.
 - Cómo comprobarlo: leer el ADR. Solo se hicieron consultas de lectura; no se envió ninguna orden.
+
+16.
+- Cambio: `LiveProperties`, `LiveConfig` y `DataConfig`: opción `trading.live.run-on-startup-day` y orden de arranque (primero la ingesta, luego el día).
+- Por qué: poder probar el ciclo completo de un día concreto contra la demo sin esperar a las 19:15.
+- Cómo comprobarlo: `mvn -pl trading-app -am test -Dtest=LivePropertiesTest` → 8 tests, 0 fallos; con la opción puesta, el log muestra `Live day ... TRADED`.
