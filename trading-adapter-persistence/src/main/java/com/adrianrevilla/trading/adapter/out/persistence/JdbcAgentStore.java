@@ -5,6 +5,7 @@ import com.adrianrevilla.trading.core.domain.AgentConfig;
 import com.adrianrevilla.trading.core.domain.AgentRunState;
 import com.adrianrevilla.trading.core.domain.CapitalPolicy;
 import com.adrianrevilla.trading.core.domain.EscalationStep;
+import com.adrianrevilla.trading.core.domain.Isin;
 import com.adrianrevilla.trading.core.domain.TradingMode;
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -63,6 +64,10 @@ public class JdbcAgentStore implements AgentStore {
                 jdbc.update("DELETE FROM agent_param WHERE agent_id = ?", agent.id());
                 insertParams(agent);
             }
+            if (!universeText(old).equals(universeText(agent))) {
+                jdbc.update("DELETE FROM agent_universe WHERE agent_id = ?", agent.id());
+                insertUniverse(agent);
+            }
             if (!stepsText(old).equals(stepsText(agent))) {
                 jdbc.update("DELETE FROM agent_step WHERE agent_id = ?", agent.id());
                 insertSteps(agent);
@@ -86,6 +91,9 @@ public class JdbcAgentStore implements AgentStore {
         if (!paramsText(old).equals(paramsText(now))) {
             audit(now.id(), by, "params", paramsText(old), paramsText(now));
         }
+        if (!universeText(old).equals(universeText(now))) {
+            audit(now.id(), by, "universe", universeText(old), universeText(now));
+        }
         if (!stepsText(old).equals(stepsText(now))) {
             audit(now.id(), by, "steps", stepsText(old), stepsText(now));
         }
@@ -95,12 +103,21 @@ public class JdbcAgentStore implements AgentStore {
         jdbc.update("INSERT INTO agent (id, strategy_id, capital, mode, state) VALUES (?, ?, ?, ?, ?)",
                 a.id(), a.strategyId(), a.capital(), a.mode().name(), a.state().name());
         insertParams(a);
+        insertUniverse(a);
         insertSteps(a);
     }
 
     private void insertParams(AgentConfig a) {
         a.params().forEach((name, value) ->
                 jdbc.update("INSERT INTO agent_param (agent_id, name, value) VALUES (?, ?, ?)", a.id(), name, value));
+    }
+
+    private void insertUniverse(AgentConfig a) {
+        int position = 0;
+        for (Isin isin : a.universe()) {
+            jdbc.update("INSERT INTO agent_universe (agent_id, position, isin) VALUES (?, ?, ?)", a.id(), position++,
+                    isin.value());
+        }
     }
 
     private void insertSteps(AgentConfig a) {
@@ -122,6 +139,10 @@ public class JdbcAgentStore implements AgentStore {
         return new TreeMap<>(a.params()).entrySet().stream()
                 .map(e -> e.getKey() + "=" + e.getValue().stripTrailingZeros().toPlainString())
                 .collect(Collectors.joining(","));
+    }
+
+    private static String universeText(AgentConfig a) {
+        return a.universe().stream().map(Isin::value).collect(Collectors.joining(","));
     }
 
     private static String stepsText(AgentConfig a) {
@@ -152,8 +173,8 @@ public class JdbcAgentStore implements AgentStore {
         List<AgentConfig> out = new ArrayList<>();
         for (Map<String, Object> r : rows) {
             String id = (String) r.get("id");
-            out.add(AgentConfig.restore(id, (String) r.get("strategy_id"), params(id), (BigDecimal) r.get("capital"),
-                    steps(id), TradingMode.valueOf((String) r.get("mode")),
+            out.add(AgentConfig.restore(id, (String) r.get("strategy_id"), params(id), universe(id),
+                    (BigDecimal) r.get("capital"), steps(id), TradingMode.valueOf((String) r.get("mode")),
                     AgentRunState.valueOf((String) r.get("state")), policy));
         }
         return out;
@@ -166,6 +187,11 @@ public class JdbcAgentStore implements AgentStore {
                     out.put(rs.getString(1), rs.getBigDecimal(2));
                 }, id);
         return out;
+    }
+
+    private List<Isin> universe(String id) {
+        return jdbc.query("SELECT isin FROM agent_universe WHERE agent_id = ? ORDER BY position",
+                (rs, i) -> new Isin(rs.getString(1).trim()), id);
     }
 
     private List<EscalationStep> steps(String id) {

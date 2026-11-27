@@ -7,6 +7,7 @@ import com.adrianrevilla.trading.application.port.out.AgentStore.AgentAuditEntry
 import com.adrianrevilla.trading.core.domain.AgentConfig;
 import com.adrianrevilla.trading.core.domain.CapitalPolicy;
 import com.adrianrevilla.trading.core.domain.EscalationStep;
+import com.adrianrevilla.trading.core.domain.Isin;
 import com.adrianrevilla.trading.core.domain.TradingMode;
 import java.math.BigDecimal;
 import java.util.List;
@@ -25,6 +26,7 @@ class JdbcAgentStoreTest {
     @Container
     static final PostgreSQLContainer<?> PG = new PostgreSQLContainer<>("postgres:16-alpine");
     private static final CapitalPolicy POLICY = new CapitalPolicy(new BigDecimal("10"), new BigDecimal("0.25"));
+    private static final List<Isin> UNIVERSE = List.of(new Isin("IE00B4L5Y983"), new Isin("IE00B5BMR087"));
 
     private PGSimpleDataSource ds;
     private JdbcAgentStore store;
@@ -41,7 +43,7 @@ class JdbcAgentStoreTest {
     }
 
     private static AgentConfig trend(String id) {
-        return AgentConfig.create(id, "trend", Map.of("window", new BigDecimal("200"), "band", new BigDecimal("0.01")),
+        return AgentConfig.create(id, "trend", Map.of("window", new BigDecimal("200"), "band", new BigDecimal("0.01")), UNIVERSE,
                 new BigDecimal("40"), List.of(new EscalationStep(30, new BigDecimal("60"))), TradingMode.DEMO, POLICY);
     }
 
@@ -101,12 +103,28 @@ class JdbcAgentStoreTest {
     @Test
     void replacingParamsAndStepsIsAuditedAndStored() {
         store.save(trend("a1"), "alice");
-        var changed = AgentConfig.create("a1", "trend", Map.of("window", new BigDecimal("100")),
+        var changed = AgentConfig.create("a1", "trend", Map.of("window", new BigDecimal("100")), UNIVERSE,
                 new BigDecimal("40"), List.of(), TradingMode.DEMO, POLICY);
         store.save(changed, "alice");
 
         assertThat(store.find("a1").orElseThrow()).isEqualTo(changed);
         assertThat(store.audit("a1")).extracting(AgentAuditEntry::field).containsExactly("created", "params", "steps");
+    }
+
+    @Test
+    void theUniverseKeepsItsOrderIsAuditedAndCanBeReplaced() {
+        store.save(trend("a1"), "alice");
+        assertThat(store.find("a1").orElseThrow().universe()).containsExactlyElementsOf(UNIVERSE);
+
+        var reordered = AgentConfig.create("a1", "trend", trend("a1").params(), List.of(UNIVERSE.get(1)),
+                new BigDecimal("40"), trend("a1").steps(), TradingMode.DEMO, POLICY);
+        store.save(reordered, "bob");
+
+        assertThat(store.find("a1").orElseThrow().universe()).containsExactly(UNIVERSE.get(1));
+        var last = store.audit("a1").get(store.audit("a1").size() - 1);
+        assertThat(last.field()).isEqualTo("universe");
+        assertThat(last.oldValue()).isEqualTo("IE00B4L5Y983,IE00B5BMR087");
+        assertThat(last.newValue()).isEqualTo("IE00B5BMR087");
     }
 
     @Test
