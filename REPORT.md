@@ -99,3 +99,73 @@
 - Cambio: `docs/runbook.md` (sección nueva del ciclo diario en demo) y `CLAUDE.md` (lo que sigue sin verificar).
 - Por qué: explicar cómo encender, probar, vigilar y apagar el ciclo demo, y dejar claro qué está ya comprobado en eToro y qué no.
 - Cómo comprobarlo: leer la sección «Ciclo diario en la cuenta demo de eToro» del runbook.
+
+20.
+- Cambio: `docs/moneda-y-conversion.md` (documento nuevo).
+- Por qué: dejar por escrito cómo afecta el cambio USD/EUR de eToro al dinero real, marcando lo que no está comprobado.
+- Cómo comprobarlo: leer el documento; no cambia código, así que no hay tests nuevos.
+
+21.
+- Cambio: `docs/adr/0030-agentes-dinamicos-api-ui.md` y su fila en `docs/adr/README.md`.
+- Por qué: dejar decidido que los agentes se crean y paran desde una API y una UI, con la configuración en base de datos.
+- Cómo comprobarlo: leer la ADR; no cambia código, así que no hay tests nuevos.
+
+22.
+- Cambio: `trading-core`, paquete `domain`: `AgentConfig`, `CapitalPolicy`, `EscalationStep`, `TradingMode`, `AgentRunState` (clases nuevas) y sus tests.
+- Por qué: es el modelo del agente configurable (estrategia, parámetros, capital, pasos); rechaza capital bajo el mínimo y el modo PROD.
+- Cómo comprobarlo: `mvn -pl trading-core test` → 55 tests, 0 fallos.
+
+23.
+- Cambio: `V7__agent.sql`, `AgentStore` (puerto) y `JdbcAgentStore` (adaptador), más `AgentConfig` que ignora ceros de más (200 = 200.00).
+- Por qué: guardar los agentes y cada cambio de su configuración (quién, cuándo, valor anterior y nuevo) en la base de datos.
+- Cómo comprobarlo: `mvn -pl trading-adapter-persistence -am test` → 10 tests nuevos de base de datos y 21 del dominio, 0 fallos.
+
+24.
+- Cambio: `JdbcAgentStore` (SQL en bloques de texto y sin `Optional.get`).
+- Por qué: la revisión estática (Semgrep) rechazaba esas dos formas de escribir; el comportamiento no cambia.
+- Cómo comprobarlo: `bash scripts/semgrep.sh` → sin hallazgos; `JdbcAgentStoreTest` en verde.
+
+25.
+- Cambio: `AgentBudgetBroker` (core), `OrderRepository.netUnitsAll/committedAmount` (memoria y JDBC), `ExecutionService.reconcileAll`, y `TradingDayService` ahora reconcilia toda la cuenta.
+- Por qué: varios agentes comparten una cuenta de eToro; antes cada uno comparaba la cuenta entera con su libro y se paraban entre sí, y el efectivo no bajaba al gastar.
+- Cómo comprobarlo: `mvn -pl trading-app -am test` → test nuevo de dos agentes en la misma cuenta, más 10, 5, 3 y 5 tests nuevos, 0 fallos.
+
+26.
+- Cambio: `trading-strategies`: `ParamSpec`, `StrategyDefinition`, `StrategyCatalog` y `BuiltinStrategies` (clases nuevas).
+- Por qué: un catálogo abierto de estrategias con sus parámetros y rangos; añadir una estrategia nueva no cambia la API ni la pantalla.
+- Cómo comprobarlo: `mvn -pl trading-strategies -am test` → 13 tests de parámetros y 8 del catálogo, 0 fallos.
+
+27.
+- Cambio: `AgentConfig` ahora guarda el universo de ETF de cada agente; `V8__agent_universe.sql` y `JdbcAgentStore` lo guardan y auditan.
+- Por qué: cada agente debe saber qué ETF puede operar (buy-and-hold usa el primero); sin esto no se puede crear desde la API.
+- Cómo comprobarlo: `mvn -pl trading-adapter-persistence -am test` → 23 tests del dominio y 11 de base de datos, 0 fallos.
+
+28.
+- Cambio: `AgentsDayService`, `LiveAgentDayFactory`, `RunAgentsDay`, `AgentsConfig` y `LiveConfig`: el ciclo diario ahora ejecuta todos los agentes activos de la base de datos.
+- Por qué: se pueden tener varios agentes con estrategias distintas en la misma cuenta demo; si uno falla, los demás siguen. El agente de antes (`live-demo`) se crea solo si no hay ninguno.
+- Cómo comprobarlo: `mvn verify` → tests nuevos (4 de AgentsDayService, 4 de LiveAgentDayFactory, 1 de contexto), 0 fallos.
+
+29.
+- Cambio: `AgentService`, `ModeService`, puertos `ManageAgents`, `QueryAgents`, `ManageMode` y los DTO de lectura (`AgentView`, `StrategyView`, `AuditView`, `ModeView`).
+- Por qué: son los casos de uso que usará la API: crear, cambiar, parar y reanudar agentes, ver el catálogo y pedir el modo (PROD se rechaza con un motivo claro).
+- Cómo comprobarlo: `mvn -pl trading-app -am test` → 11 tests de agentes y 10 de modo, 0 fallos; ArchUnit sigue en verde.
+
+30.
+- Cambio: `AgentsApiServer` (adaptador web), `ApiConfig`, `ApiProperties`, `application.yml`, `docker-compose.yml` y `.env.example` (nueva variable `TRADING_API_TOKEN`).
+- Por qué: la API JSON para crear, cambiar, parar y reanudar agentes, ver el catálogo y pedir el modo; solo escucha en local y exige un token; PROD responde 409.
+- Cómo comprobarlo: `mvn -pl trading-app -am test -Dtest=ApiContextTest,AgentsApiServerTest` → 12 tests HTTP y 2 de extremo a extremo con base de datos real, 0 fallos; `bash scripts/check-ops.sh` → OK.
+
+31.
+- Cambio: `QueryAgents.limits()`, `LimitsView` y la ruta `GET /api/limits`.
+- Por qué: la pantalla muestra el capital mínimo (40) y los límites de orden sin adivinarlos; el servidor los sigue aplicando igual.
+- Cómo comprobarlo: `mvn -pl trading-app -am test -Dtest=AgentServiceTest,AgentsApiServerTest,ApiContextTest` → 25 tests, 0 fallos.
+
+32.
+- Cambio: carpeta `frontend/` (React + TypeScript + Vite), job `frontend` en `ci.yml`, Dependabot para npm, objetivos `make ui`, `make ui-install`, `make ui-test`, y la sección «Agentes desde la pantalla» del runbook.
+- Por qué: la pantalla para crear, cambiar, parar y reanudar agentes y ver su historial, con las reglas que aplica el servidor explicadas.
+- Cómo comprobarlo: `make ui-test` → 21 tests (api, formulario, pantalla), tipos y build sin errores; `npm audit` sin hallazgos.
+
+33.
+- Cambio: `CLAUDE.md`, `docs/PRD.md`, `docs/TRD.md` y `docs/adr/0028` (nota de sustitución parcial por la ADR-0030).
+- Por qué: la documentación decía «sin frontend» y un solo agente; ahora hay pantalla y varios agentes, y lo no probado en eToro queda declarado.
+- Cómo comprobarlo: leer los cambios; no cambia código.

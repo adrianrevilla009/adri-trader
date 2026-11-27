@@ -71,13 +71,13 @@ class LivePropertiesTest {
     }
 
     @Test
-    void liveIsOffByDefaultAndNeedsAnIsinWhenOn() {
+    void liveIsOffByDefaultAndTheIsinOnlySeedsTheFirstAgent() {
         var p = bind("trading.live", LiveProperties.class, Map.of("trading.live.enabled", "false"));
         assertThat(p.enabled()).isFalse();
         assertThat(p.capital()).isEqualByComparingTo("40");
         assertThat(p.strategy()).isEqualTo("buy-and-hold");
-        assertThatThrownBy(() -> new LiveProperties(true, "a", "buy-and-hold", "", BigDecimal.TEN, ""))
-                .hasMessageContaining("isin is required");
+        // agents now live in the database (ADR-0030): with no isin the cycle starts and simply seeds nothing
+        assertThat(new LiveProperties(true, "a", "buy-and-hold", "", BigDecimal.TEN, "").isin()).isEmpty();
     }
 
     @Test
