@@ -273,4 +273,30 @@ class TradingDayServiceTest {
         assertThat(open).hasSize(1);
         assertThat(open.get(0).state()).isEqualTo(OrderState.SUBMITTED);
     }
+    private TradingDayService jobFor(String agentId, Isin isin) {
+        var execution = new ExecutionService(sim, orders, kill, (l, m) -> alerts.add(l + ":" + m),
+                new Reconciler(new BigDecimal("0.000001")));
+        var risk = RiskManager.standard(RiskConfig.defaults(Set.of(A, B)), kill);
+        return new TradingDayService(agentId, new BuyAndHold(agentId, isin), List.of(A, B), "XETRA", bars, execution,
+                orders, sim, kill, risk, dayLog, journal, (l, m) -> alerts.add(l + ":" + m), false,
+                RealTradingGate.closed());
+    }
+
+    @Test
+    void twoAgentsOnTheSameAccountDoNotHaltEachOtherAndEachKeepsItsOwnLedger() {
+        assertThat(jobFor("agent-a", A).run(D1).outcome()).isEqualTo(TradingDayService.Outcome.TRADED);
+        assertThat(jobFor("agent-b", B).run(D1).outcome()).isEqualTo(TradingDayService.Outcome.TRADED);
+        sim.executePending(Map.of(A, BigDecimal.valueOf(100), B, BigDecimal.valueOf(100)));
+
+        // next day: the account holds A and B together; each agent must still reconcile fine
+        var a = jobFor("agent-a", A).run(D2);
+        var b = jobFor("agent-b", B).run(D2);
+
+        assertThat(a.outcome()).isNotEqualTo(TradingDayService.Outcome.HALTED);
+        assertThat(b.outcome()).isNotEqualTo(TradingDayService.Outcome.HALTED);
+        assertThat(kill.isActive()).isFalse();
+        assertThat(orders.netUnits("agent-a")).containsOnlyKeys(A);
+        assertThat(orders.netUnits("agent-b")).containsOnlyKeys(B);
+        assertThat(orders.netUnitsAll()).containsOnlyKeys(A, B);
+    }
 }

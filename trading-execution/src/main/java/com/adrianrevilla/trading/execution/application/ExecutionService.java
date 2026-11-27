@@ -106,12 +106,25 @@ public final class ExecutionService {
         return changed;
     }
 
-    /** Compares the ledger of the agent with the broker; a difference stops all trading. */
+    /** Compares the ledger of one agent with the broker; a difference stops all trading. Only right for a single agent. */
     public Reconciler.Report reconcile(String agentId) {
+        return compare(orders.netUnits(agentId), "agent " + agentId);
+    }
+
+    /**
+     * Compares the ledger of EVERY agent, added up, with the broker. Several agents share one account, so the account
+     * holds the sum of their positions and no single agent can explain it alone. A difference stops all trading.
+     */
+    public Reconciler.Report reconcileAll() {
+        return compare(orders.netUnitsAll(), "all agents");
+    }
+
+    private Reconciler.Report compare(java.util.Map<com.adrianrevilla.trading.core.domain.Isin, BigDecimal> ledger,
+            String who) {
         try {
-            Reconciler.Report report = reconciler.compare(orders.netUnits(agentId), broker.positions());
+            Reconciler.Report report = reconciler.compare(ledger, broker.positions());
             if (!report.ok()) {
-                halt("Reconciliation difference for " + agentId + ": " + report.differences());
+                halt("Reconciliation difference for " + who + ": " + report.differences());
             }
             return report;
         } catch (BrokerException e) {

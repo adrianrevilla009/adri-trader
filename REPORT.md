@@ -124,3 +124,8 @@
 - Cambio: `JdbcAgentStore` (SQL en bloques de texto y sin `Optional.get`).
 - Por qué: la revisión estática (Semgrep) rechazaba esas dos formas de escribir; el comportamiento no cambia.
 - Cómo comprobarlo: `bash scripts/semgrep.sh` → sin hallazgos; `JdbcAgentStoreTest` en verde.
+
+25.
+- Cambio: `AgentBudgetBroker` (core), `OrderRepository.netUnitsAll/committedAmount` (memoria y JDBC), `ExecutionService.reconcileAll`, y `TradingDayService` ahora reconcilia toda la cuenta.
+- Por qué: varios agentes comparten una cuenta de eToro; antes cada uno comparaba la cuenta entera con su libro y se paraban entre sí, y el efectivo no bajaba al gastar.
+- Cómo comprobarlo: `mvn -pl trading-app -am test` → test nuevo de dos agentes en la misma cuenta, más 10, 5, 3 y 5 tests nuevos, 0 fallos.

@@ -88,9 +88,10 @@ public class TradingDayService implements RunTradingDay {
             return Result.of(Outcome.NOT_ALLOWED, "real trading not enabled for this agent");
         }
 
-        // 1) bring the store up to date with what the broker did since the last run, and compare
+        // 1) bring the store up to date with what the broker did since the last run, and compare the whole account
+        //    (all agents added up: they share one account, ADR-0030)
         execution.syncOpenOrders();
-        if (!execution.reconcile(agentId).ok() || killSwitch.isActive()) {
+        if (!execution.reconcileAll().ok() || killSwitch.isActive()) {
             return Result.of(Outcome.HALTED, "reconciliation difference or halt; trading stopped");
         }
 
