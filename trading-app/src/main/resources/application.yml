@@ -43,6 +43,19 @@ trading:
     user-key: ${ETORO_USER_KEY:}
     max-reads-per-minute: 60
     max-writes-per-minute: 20
+    # DEMO only: real orders are refused at start (ADR-0028). Hard cap per order, in the account currency.
+    mode: DEMO
+    max-order-amount: 10
+    # ISIN=eToro instrument id, comma separated. Ids seen in the eToro catalogue; the ISINs are UNVERIFIED (phase 0).
+    instruments: ${TRADING_ETORO_INSTRUMENTS:}
+  live:
+    # Daily cycle on the eToro DEMO account (ADR-0028). Off until switched on with TRADING_LIVE_ENABLED=true.
+    enabled: false
+    agent-id: live-demo
+    strategy: buy-and-hold
+    isin: ${TRADING_LIVE_ISIN:}
+    capital: 40
+    cron: "0 15 19 * * MON-FRI"
   killswitch:
     # Endpoint disabled unless a token of 16+ characters is set. Loopback only.
     token: ${KILL_SWITCH_TOKEN:}

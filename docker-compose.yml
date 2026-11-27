@@ -59,6 +59,7 @@ services:
       TRADING_INGESTION_FROM_YEAR: "2009"
       TRADING_INGESTION_RUN_ON_STARTUP: ${TRADING_INGESTION_RUN_ON_STARTUP:-true}
       TRADING_ARENA_ENABLED: "true"
+      TRADING_LIVE_ENABLED: ${TRADING_LIVE_ENABLED:-false}
       ARENA_START_DATE: ${ARENA_START_DATE:-}
       # Reachable only on the private network (the port is not published). Loopback inside the container still works
       # for the image healthcheck.
