@@ -39,6 +39,15 @@ public interface OrderRepository {
     /** Net units per instrument for an agent, derived from the fills (buys positive, sells negative). */
     Map<Isin, BigDecimal> netUnits(String agentId);
 
+    /** Net units per instrument of every agent together: what the whole account should hold. */
+    Map<Isin, BigDecimal> netUnitsAll();
+
+    /**
+     * Money an agent has committed: filled buys minus filled sells, plus the part of its open buy orders that is not yet
+     * filled. The agent budget is its capital minus this amount (ADR-0030). Negative when it sold above cost.
+     */
+    BigDecimal committedAmount(String agentId);
+
     class DuplicateOrderException extends RuntimeException {
         public DuplicateOrderException(UUID id) {
             super("Order already exists: " + id);
