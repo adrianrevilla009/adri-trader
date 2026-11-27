@@ -144,3 +144,8 @@
 - Cambio: `AgentsDayService`, `LiveAgentDayFactory`, `RunAgentsDay`, `AgentsConfig` y `LiveConfig`: el ciclo diario ahora ejecuta todos los agentes activos de la base de datos.
 - Por qué: se pueden tener varios agentes con estrategias distintas en la misma cuenta demo; si uno falla, los demás siguen. El agente de antes (`live-demo`) se crea solo si no hay ninguno.
 - Cómo comprobarlo: `mvn verify` → tests nuevos (4 de AgentsDayService, 4 de LiveAgentDayFactory, 1 de contexto), 0 fallos.
+
+29.
+- Cambio: `AgentService`, `ModeService`, puertos `ManageAgents`, `QueryAgents`, `ManageMode` y los DTO de lectura (`AgentView`, `StrategyView`, `AuditView`, `ModeView`).
+- Por qué: son los casos de uso que usará la API: crear, cambiar, parar y reanudar agentes, ver el catálogo y pedir el modo (PROD se rechaza con un motivo claro).
+- Cómo comprobarlo: `mvn -pl trading-app -am test` → 11 tests de agentes y 10 de modo, 0 fallos; ArchUnit sigue en verde.
