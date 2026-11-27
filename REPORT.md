@@ -94,3 +94,8 @@
 - Cambio: `EtoroProperties` (campo `minOrderAmount`), `LiveConfig` (el riesgo usa ese mínimo) y `application.yml`.
 - Por qué: en la prueba con la demo el bot envió una compra de 3,31; eToro la aceptó y la rechazó después (mínimo 10 USD). Ahora el riesgo descarta las órdenes menores de 10 antes de enviarlas.
 - Cómo comprobarlo: `mvn -pl trading-app -am test -Dtest=LivePropertiesTest` → 9 tests, 0 fallos; en la demo, un día sin orden pequeña: `sent 0` y la orden rechazada anterior queda `REJECTED`.
+
+19.
+- Cambio: `docs/runbook.md` (sección nueva del ciclo diario en demo) y `CLAUDE.md` (lo que sigue sin verificar).
+- Por qué: explicar cómo encender, probar, vigilar y apagar el ciclo demo, y dejar claro qué está ya comprobado en eToro y qué no.
+- Cómo comprobarlo: leer la sección «Ciclo diario en la cuenta demo de eToro» del runbook.

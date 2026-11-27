@@ -71,6 +71,41 @@ Las alertas salen de `ops/prometheus/rules/trading.yml` y llegan por Telegram. G
 - **Restauración probada** antes del dinero real: restaurar en una base vacía y comprobar que el libro de operaciones cuadra con eToro.
 - Objetivo de recuperación: 24 horas (resiliencia tier 3).
 
+## Ciclo diario en la cuenta demo de eToro
+
+Decisión y límites: [ADR-0028](adr/0028-ciclo-diario-demo-etoro.md). Solo demo, apagado por defecto.
+
+**Encender** (en `.env` o en el entorno; las claves nunca en el repositorio):
+
+```
+ETORO_API_KEY=...                 # clave DEMO
+ETORO_USER_KEY=...
+TRADING_LIVE_ENABLED=true
+TRADING_LIVE_ISIN=IE00B4L5Y983    # y su id en TRADING_ETORO_INSTRUMENTS (config/dev-universe.env ya los trae)
+```
+
+Corre de lunes a viernes a las 19:15 (Europe/Berlin), después de la ingesta. Cada orden está limitada a 10 y el agente ve como
+máximo 40 de efectivo (`trading.etoro.max-order-amount`, `trading.live.capital`). Con `trading.etoro.mode=REAL` la aplicación no arranca.
+
+**Probarlo ya, sin esperar a las 19:15:** `TRADING_LIVE_RUN_ON_STARTUP_DAY=2026-11-25` ejecuta ese día una vez al arrancar, después de
+la ingesta. Usa un día que tenga barra; el día se reclama en la base de datos, así que no se repite.
+
+**Qué mirar** (log y Grafana): `Live day <fecha>: TRADED (sent N, rejected N, unknown N)`. Otros resultados:
+
+| Resultado | Significa | Qué hacer |
+| --- | --- | --- |
+| `NO_DATA` | Falta la barra de ese día (Yahoo a veces no la trae); el bot no opera | Esperar a la ingesta del día siguiente o cargarla; no forzar |
+| `HALTED` | La reconciliación encontró diferencia con eToro, o se activó el interruptor | Ver «Qué hacer ante cada alerta»; no reanudar sin entender la diferencia |
+| `ALREADY_RAN` | Ese día ya se reclamó | Nada. Si quedó `STARTED` sin terminar hay una alerta crítica: revisar a mano, no se reintenta |
+| `FAILED` | Excepción durante el día | Leer la alerta; las órdenes pudieron salir |
+
+**Apagar:** `TRADING_LIVE_ENABLED=false` y reiniciar, o el interruptor (kill switch) para parar al instante.
+
+**Comprobaciones contra eToro, con tope 10 y solo demo:** `ETORO_LIVE_DEMO=1 mvn -pl trading-broker-etoro -am test -Dtest=EToroDemoLiveTest`.
+
+**Límites conocidos** (no los des por resueltos): la estrategia es `buy-and-hold`, no hay ninguna que supere al benchmark; USD y EUR se
+tratan 1:1; una orden de mercado fuera de horario no está probada; eToro acepta una orden menor de 10 USD y la rechaza después.
+
 ## Antes del dinero real (lista de comprobación)
 
 - [ ] Cuatro semanas en demo sin intervención y reconciliación sin diferencias sin explicar.

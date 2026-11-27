@@ -52,6 +52,6 @@ corrige el código o escribe un ADR que cambie la regla.** Cada regla tiene una 
 
 ## Lo que no está verificado (no lo des por hecho)
 
-La API real de eToro (13 suposiciones en `docs/fase0-verificacion-etoro.md`); los ISIN de `config/dev-universe.env`; la entrega de
+La API REAL de eToro (la DEMO está verificada para compra, cierre, estado y cancelación; ver `docs/fase0-verificacion-etoro.md`); los ISIN de `config/dev-universe.env` (eToro no los devuelve; EUNK no existe allí); la entrega de
 alertas a Telegram; la VM de Azure y `scripts/deploy.sh` (nunca ejecutados); los flujos de release y promoción (sin primera
 etiqueta). Ningún criterio de salida de fase está cumplido.
