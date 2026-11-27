@@ -36,7 +36,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.event.EventListener;
+import org.springframework.core.annotation.Order;
 import org.springframework.scheduling.annotation.Scheduled;
 
 /** Wiring only (ADR-0025): the daily cycle against the eToro DEMO account. Created only when trading.live.enabled. */
@@ -102,17 +105,33 @@ public class LiveConfig {
     }
 
     @Bean
-    ScheduledLiveDay scheduledLiveDay(RunTradingDay job, Clock clock) {
-        return new ScheduledLiveDay(job, clock);
+    ScheduledLiveDay scheduledLiveDay(RunTradingDay job, Clock clock, LiveProperties live) {
+        return new ScheduledLiveDay(job, clock, live.startupDay());
     }
 
     public static class ScheduledLiveDay {
         private final RunTradingDay job;
         private final Clock clock;
 
-        ScheduledLiveDay(RunTradingDay job, Clock clock) {
+        private final LocalDate startupDay;
+
+        ScheduledLiveDay(RunTradingDay job, Clock clock, LocalDate startupDay) {
             this.job = job;
             this.clock = clock;
+            this.startupDay = startupDay;
+        }
+
+        /**
+         * Optional single run of a given day when the app is ready (after the ingestion, which has order 1). It uses the
+         * same job, so the day is claimed in the database and can only run once.
+         */
+        @EventListener(ApplicationReadyEvent.class)
+        @Order(2)
+        public void onReady() {
+            if (startupDay != null) {
+                var result = job.run(startupDay);
+                LOG.info("Live day {} (on startup): {} ({})", startupDay, result.outcome(), result.detail());
+            }
         }
 
         /** After the ingestion (19:00); the decision uses the close of today, orders wait for the next open. */

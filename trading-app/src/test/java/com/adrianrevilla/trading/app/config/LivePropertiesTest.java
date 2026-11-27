@@ -65,17 +65,26 @@ class LivePropertiesTest {
         assertThat(p.enabled()).isFalse();
         assertThat(p.capital()).isEqualByComparingTo("40");
         assertThat(p.strategy()).isEqualTo("buy-and-hold");
-        assertThatThrownBy(() -> new LiveProperties(true, "a", "buy-and-hold", "", BigDecimal.TEN))
+        assertThatThrownBy(() -> new LiveProperties(true, "a", "buy-and-hold", "", BigDecimal.TEN, ""))
                 .hasMessageContaining("isin is required");
     }
 
     @Test
     void liveRejectsAnUnknownStrategyAndBadValues() {
-        assertThatThrownBy(() -> new LiveProperties(false, "a", "magic", "", BigDecimal.TEN))
+        assertThatThrownBy(() -> new LiveProperties(false, "a", "magic", "", BigDecimal.TEN, ""))
                 .hasMessageContaining("strategy");
-        assertThatThrownBy(() -> new LiveProperties(false, "a", "buy-and-hold", "", BigDecimal.ZERO))
+        assertThatThrownBy(() -> new LiveProperties(false, "a", "buy-and-hold", "", BigDecimal.ZERO, ""))
                 .hasMessageContaining("capital");
-        assertThatThrownBy(() -> new LiveProperties(false, " ", "buy-and-hold", "", BigDecimal.TEN))
+        assertThatThrownBy(() -> new LiveProperties(false, " ", "buy-and-hold", "", BigDecimal.TEN, ""))
                 .hasMessageContaining("agent-id");
+    }
+
+    @Test
+    void startupDayIsOptionalAndMustBeADate() {
+        assertThat(new LiveProperties(false, "a", "buy-and-hold", "", BigDecimal.TEN, "").startupDay()).isNull();
+        assertThat(new LiveProperties(false, "a", "buy-and-hold", "", BigDecimal.TEN, "2026-11-26").startupDay())
+                .hasToString("2026-11-26");
+        assertThatThrownBy(() -> new LiveProperties(false, "a", "buy-and-hold", "", BigDecimal.TEN, "26/11/2026"))
+                .isInstanceOf(java.time.format.DateTimeParseException.class);
     }
 }
