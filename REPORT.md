@@ -74,3 +74,8 @@
 - Cambio: `docs/fase0-verificacion-etoro.md`, sección «Cancelación e instrumentos».
 - Por qué: se probó en demo cancelar una orden pendiente (funciona con la ruta del código) y se comprobó que eToro tiene 3 de los 4 ETF del universo; EUNK.DE no existe allí.
 - Cómo comprobarlo: leer la sección. Solo se hizo una orden pendiente de 10 USD en demo y se canceló; la cuenta demo quedó limpia.
+
+15.
+- Cambio: `docs/adr/0029-yahoo-fuente-historico.md` y el índice de ADR.
+- Por qué: faltaba cerrar la elección de la fuente de datos históricos. Se comparó Yahoo con las velas de eToro del último año: diferencia media entre 0,05 % y 0,14 %.
+- Cómo comprobarlo: leer el ADR. Solo se hicieron consultas de lectura; no se envió ninguna orden.
