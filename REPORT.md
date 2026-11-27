@@ -79,3 +79,8 @@
 - Cambio: `docs/adr/0029-yahoo-fuente-historico.md` y el índice de ADR.
 - Por qué: faltaba cerrar la elección de la fuente de datos históricos. Se comparó Yahoo con las velas de eToro del último año: diferencia media entre 0,05 % y 0,14 %.
 - Cómo comprobarlo: leer el ADR. Solo se hicieron consultas de lectura; no se envió ninguna orden.
+
+17.
+- Cambio: `EToroBroker.lookup`: el precio medio de una compra ahora es importe / unidades (en la moneda de la cuenta).
+- Por qué: la prueba completa con la demo se paraba en la reconciliación (esperadas 0,07843 unidades, eToro 0,071552) porque el importe estaba en USD y el precio en EUR.
+- Cómo comprobarlo: `mvn -pl trading-broker-etoro -am test -Dtest=EToroBrokerTest` → 40 tests, 0 fallos; el ciclo completo en demo reconcilia sin diferencias.
