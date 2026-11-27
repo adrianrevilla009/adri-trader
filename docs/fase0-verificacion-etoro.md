@@ -55,3 +55,13 @@ Sigue sin comprobar: cancelación de órdenes (fila 6), enlace de una respuesta 
 `EToroBroker` y `EToroConfig` ya usan lo verificado arriba: cuerpo de compra con `transaction`, venta como cierre por `positionId` (entera o por unidades), estado por `orders:lookup` y por `close-orders`, y la cartera con los nombres reales (`instrumentID`, `positionID`). Un 404 justo después de crear una orden se trata como «enviada, pendiente» (eToro tarda un instante en listarla; la cartera también tarda). Cada orden tiene un tope (`maxOrderAmount`) y las órdenes limitadas se rechazan porque su cuerpo no está verificado.
 
 Prueba repetible contra la demo (tope 10, solo modo DEMO, se omite si no se pide): `ETORO_LIVE_DEMO=1 mvn -pl trading-broker-etoro -am test -Dtest=EToroDemoLiveTest`. Compra 10 USD de EUNL.DE, espera la posición y la cierra.
+
+### Cancelación e instrumentos (2026-11-27, demo, solo consultas y una orden pendiente de 10 USD)
+
+| Qué | Resultado |
+| --- | --- |
+| Fila 6 (cancelación) | **Verificada en demo.** `DELETE /api/v2/trading/execution/demo/orders/{orderId}` → 200 `{"orderId":…,"referenceId":""}`. La orden pasó de estado 12 (`PendingTriggeredRate`) a 7 (`Canceled`). Es la ruta que ya usa `EToroBroker.cancel` |
+| Órdenes pendientes | Con el mercado abierto una orden de mercado se ejecuta al instante. Se obtuvo una orden pendiente con `orderType` `mit` y `triggerRate` (por debajo del precio). `lmt` y `limit` dan 400 («Error converting value»); `limitRate` con `mit` da 400 («LimitRate can only be provided for LimitIOC orders»). El cuerpo de las órdenes límite sigue sin verificar y el código las rechaza |
+| Estados vistos | 1 y 3 (compra y cierre), 12 y 7 (orden pendiente y cancelada). El resto sigue solo en la documentación |
+| Fila 10 (universo) | La clave demo no puede usar `/api/v2/market-data/instruments/search` (403), pero `GET /api/v1/market-data/instruments?instrumentIds=` funciona. Los nombres coinciden: 15348 «iShares Core MSCI World UCITS ETF USD (Acc)» (EUNL.DE), 3275 «iShares Core S&P 500 UCITS ETF» (SXR8.DE), 2914 «iShares Core MSCI EM IMI UCITS ETF» (IS3N.DE). **eToro no devuelve el ISIN**, así que la correspondencia ISIN–id se apoya en símbolo y nombre |
+| EUNK.DE (IE00B4K48X80) | `GET /api/v1/market-data/search?internalSymbolFull=EUNK.DE` devuelve 0 resultados: **no hay instrumento en eToro con ese símbolo**. Para operar en eToro el universo se queda en 3 ETF; EUNK solo sirve para el histórico |
