@@ -53,10 +53,21 @@ class LivePropertiesTest {
     @Test
     void etoroRejectsNonPositiveLimitsAndCap() {
         var ok = EToroConfig.Mode.DEMO;
-        assertThatThrownBy(() -> new EtoroProperties("u", "k", "u", ok, 0, 20, BigDecimal.TEN, List.of()))
+        assertThatThrownBy(() -> new EtoroProperties("u", "k", "u", ok, 0, 20, BigDecimal.TEN, BigDecimal.TEN, List.of()))
                 .hasMessageContaining("rate limits");
-        assertThatThrownBy(() -> new EtoroProperties("u", "k", "u", ok, 60, 20, BigDecimal.ZERO, List.of()))
-                .hasMessageContaining("max-order-amount");
+        assertThatThrownBy(() -> new EtoroProperties("u", "k", "u", ok, 60, 20, BigDecimal.ZERO, BigDecimal.TEN,
+                List.of())).hasMessageContaining("max-order-amount");
+    }
+
+    @Test
+    void minimumOrderDefaultsToEtorosMinimumAndMustFitUnderTheCap() {
+        var p = bind("trading.etoro", EtoroProperties.class, Map.of("trading.etoro.api-key", "k"));
+        assertThat(p.minOrderAmount()).isEqualByComparingTo("10");
+        var ok = EToroConfig.Mode.DEMO;
+        assertThatThrownBy(() -> new EtoroProperties("u", "k", "u", ok, 60, 20, BigDecimal.TEN, BigDecimal.ZERO,
+                List.of())).hasMessageContaining("min-order-amount");
+        assertThatThrownBy(() -> new EtoroProperties("u", "k", "u", ok, 60, 20, BigDecimal.TEN, new BigDecimal("11"),
+                List.of())).hasMessageContaining("min-order-amount");
     }
 
     @Test
