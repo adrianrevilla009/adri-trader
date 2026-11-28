@@ -25,7 +25,8 @@ import java.util.Set;
  * Use cases to create, change, stop and resume agents and to read them (ADR-0030). All the rules live in the domain
  * (AgentConfig, CapitalPolicy, StrategyCatalog); this class only turns the plain input of the API into domain values,
  * stores the result with the actor for the audit trail and turns the result back into a read model. An update builds
- * the complete new agent first, so it is all or nothing.
+ * the complete new agent first, so it is all or nothing. Commands are synchronized: the bot is one process, so the
+ * read-then-write of a duplicate check or an update must not interleave with another command.
  */
 public class AgentService implements ManageAgents, QueryAgents {
     private final AgentStore store;
@@ -44,9 +45,15 @@ public class AgentService implements ManageAgents, QueryAgents {
     // ---- commands ----
 
     @Override
-    public AgentView create(CreateAgent command, String actor) {
+    public synchronized AgentView create(CreateAgent command, String actor) {
         requireActor(actor);
         Objects.requireNonNull(command, "command");
+        if (command.strategyId() == null || command.strategyId().isBlank()) {
+            throw new IllegalArgumentException("strategyId is required");
+        }
+        if (command.capital() == null) {
+            throw new IllegalArgumentException("capital is required");
+        }
         if (command.id() != null && store.find(command.id()).isPresent()) {
             throw new AgentAlreadyExistsException(command.id());
         }
@@ -59,7 +66,7 @@ public class AgentService implements ManageAgents, QueryAgents {
     }
 
     @Override
-    public AgentView update(String id, UpdateAgent command, String actor) {
+    public synchronized AgentView update(String id, UpdateAgent command, String actor) {
         requireActor(actor);
         Objects.requireNonNull(command, "command");
         AgentConfig old = require(id);
@@ -75,7 +82,7 @@ public class AgentService implements ManageAgents, QueryAgents {
     }
 
     @Override
-    public AgentView stop(String id, String actor) {
+    public synchronized AgentView stop(String id, String actor) {
         requireActor(actor);
         AgentConfig stopped = require(id).stopped();
         store.save(stopped, actor);
@@ -83,7 +90,7 @@ public class AgentService implements ManageAgents, QueryAgents {
     }
 
     @Override
-    public AgentView resume(String id, String actor) {
+    public synchronized AgentView resume(String id, String actor) {
         requireActor(actor);
         AgentConfig resumed = require(id).resumed();
         store.save(resumed, actor);
@@ -155,8 +162,15 @@ public class AgentService implements ManageAgents, QueryAgents {
     }
 
     private static List<EscalationStep> steps(List<StepSpec> specs) {
-        return specs == null ? List.of()
-                : specs.stream().map(s -> new EscalationStep(s.afterDays(), s.capital())).toList();
+        if (specs == null) {
+            return List.of();
+        }
+        return specs.stream().map(s -> {
+            if (s == null || s.capital() == null) {
+                throw new IllegalArgumentException("each escalation step needs afterDays and capital");
+            }
+            return new EscalationStep(s.afterDays(), s.capital());
+        }).toList();
     }
 
     private static AgentView view(AgentConfig a) {

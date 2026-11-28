@@ -16,6 +16,8 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Supplier;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * The trading mode of the system (ADR-0030, ADR-0031). The mode lives in memory and starts as DEMO on every boot, so a
@@ -31,6 +33,7 @@ import java.util.function.Supplier;
  * Methods are synchronized: the state is tiny and a switch must never race another one.
  */
 public class ModeService implements ManageMode {
+    private static final Logger LOG = LoggerFactory.getLogger(ModeService.class);
     /** What the person types to confirm. */
     public static final String CONFIRM_PHRASE = "SWITCH TO PROD";
     private static final int CLOCK_WINDOW = 1; // one 30-second step either side
@@ -91,7 +94,7 @@ public class ModeService implements ManageMode {
             audit.record(actor, TradingMode.PROD.name(), TradingMode.DEMO.name(), "SWITCHED", "back to DEMO");
             mode = TradingMode.DEMO;
             pending = null;
-            alerter.alert(Alerter.Level.WARNING, "Mode switched back to DEMO by " + actor);
+            notifyOps(Alerter.Level.WARNING, "Mode switched back to DEMO by " + actor);
         }
         return current();
     }
@@ -107,7 +110,7 @@ public class ModeService implements ManageMode {
         Instant expires = clock.instant().plus(policy.challengeTtl());
         pending = new Pending(ids.get(), actor, expires);
         audit.record(actor, mode.name(), TradingMode.PROD.name(), "CHALLENGE_ISSUED", "expires " + expires);
-        alerter.alert(Alerter.Level.WARNING, "A switch to PROD was requested by " + actor + "; waiting for MFA");
+        notifyOps(Alerter.Level.WARNING, "A switch to PROD was requested by " + actor + "; waiting for MFA");
         return new ProdChallengeView(pending.id(), expires.toString(), CONFIRM_PHRASE);
     }
 
@@ -145,9 +148,18 @@ public class ModeService implements ManageMode {
         lastAcceptedStep = step;
         failures = 0;
         mode = TradingMode.PROD;
-        alerter.alert(Alerter.Level.CRITICAL, "Mode switched to PROD by " + actor
+        notifyOps(Alerter.Level.CRITICAL, "Mode switched to PROD by " + actor
                 + ". The daily cycle will not trade until a real broker exists (ADR-0031).");
         return current();
+    }
+
+    /** An alert that cannot be sent must never change the outcome of a switch or hide the real error. */
+    private void notifyOps(Alerter.Level level, String message) {
+        try {
+            alerter.alert(level, message);
+        } catch (RuntimeException e) {
+            LOG.error("Could not send the alert (the audit trail has the event): {}", message, e);
+        }
     }
 
     private void requireFeature(String actor) {
@@ -169,20 +181,20 @@ public class ModeService implements ManageMode {
 
     private void refuse(String actor, String reason) {
         audit.record(actor, mode.name(), TradingMode.PROD.name(), "REFUSED", reason);
-        alerter.alert(Alerter.Level.WARNING, "Switch to PROD refused (" + reason + "): requested by " + actor);
+        notifyOps(Alerter.Level.WARNING, "Switch to PROD refused (" + reason + "): requested by " + actor);
     }
 
     /** Counts the failure, locks out when there are too many and returns the one error every cause shares. */
     private ConfirmationRejectedException reject(String actor, String reason) {
         failures++;
         audit.record(actor, mode.name(), TradingMode.PROD.name(), "REJECTED", reason);
-        alerter.alert(Alerter.Level.WARNING, "Switch to PROD rejected (" + reason + "): " + actor + ", failure "
+        notifyOps(Alerter.Level.WARNING, "Switch to PROD rejected (" + reason + "): " + actor + ", failure "
                 + failures + " of " + policy.maxFailures());
         if (failures >= policy.maxFailures()) {
             lockedUntil = clock.instant().plus(policy.lockout());
             failures = 0;
             audit.record(actor, mode.name(), TradingMode.PROD.name(), "LOCKED_OUT", "until " + lockedUntil);
-            alerter.alert(Alerter.Level.CRITICAL, "Switch to PROD locked until " + lockedUntil
+            notifyOps(Alerter.Level.CRITICAL, "Switch to PROD locked until " + lockedUntil
                     + " after repeated failures (last by " + actor + ")");
         }
         return new ConfirmationRejectedException();

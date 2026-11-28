@@ -101,7 +101,14 @@ public final class AgentConfig {
     }
 
     /** Same number without trailing zeros ("40.00" and "40" become one value), so equals does not depend on scale. */
+    /** Above this size (10^30) a number is nonsense for money or a parameter, and rewriting it would eat memory. */
+    private static final int MAX_MAGNITUDE_DIGITS = 30;
+
     private static BigDecimal canonical(BigDecimal v) {
+        // long arithmetic: the scale of 1e+2147483647 is near Integer.MIN_VALUE and would overflow an int
+        if ((long) v.precision() - v.scale() > MAX_MAGNITUDE_DIGITS) {
+            throw new IllegalArgumentException("number out of range (more than " + MAX_MAGNITUDE_DIGITS + " digits)");
+        }
         BigDecimal s = v.stripTrailingZeros();
         return s.scale() < 0 ? s.setScale(0) : s;
     }
@@ -110,6 +117,7 @@ public final class AgentConfig {
         if (capital == null || capital.signum() <= 0) {
             throw new IllegalArgumentException("capital must be positive: " + capital);
         }
+        canonical(capital); // rejects an absurd magnitude before any other arithmetic
         if (!policy.accepts(capital)) {
             throw new IllegalArgumentException("capital " + capital + " is below the minimum "
                     + policy.minimumCapital() + " (the biggest position must reach the minimum order)");

@@ -367,10 +367,48 @@ jobs:
       # Only dependencies that reach the browser matter at run time; dev tools are checked too but do not block on low findings.
       - run: npm audit --audit-level=high
 
+  e2e:
+    name: End to end (real bot, real database, real client)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --ignore-scripts
+        working-directory: frontend
+      - run: bash scripts/e2e.sh
+
+  mutation:
+    name: Mutation testing (money and access code)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+      # Fails if a change to the code that guards money or access goes unnoticed by the tests (minimum scores in the script)
+      - run: bash scripts/mutation.sh
+
   ci-gate:
     name: CI gate
     if: always()
-    needs: [build-test, terraform, semgrep, ops-config, stack-smoke, secrets-scan, repo-scan, dependency-review, image, sonar, pr-title, frontend]
+    needs: [build-test, terraform, semgrep, ops-config, stack-smoke, secrets-scan, repo-scan, dependency-review, image, sonar, pr-title, frontend, e2e, mutation]
     runs-on: ubuntu-latest
     steps:
       - name: Every required job passed (skipped is fine only for jobs that are conditional)

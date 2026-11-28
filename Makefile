@@ -1,7 +1,7 @@
 # Market data is never committed: `make up` starts the whole stack (database, bot, nightly backups, Prometheus,
 # Alertmanager, Grafana, Tempo, OpenTelemetry collector). The bot downloads the history on its first start
 # (idempotent; later starts only add new days). Everything lives in docker volumes.
-.PHONY: init up up-core down reset logs ps psql test hooks check-ops smoke semgrep ui-install ui ui-test
+.PHONY: init up up-core down reset logs ps psql test hooks check-ops smoke semgrep ui-install ui ui-test e2e mutation
 
 ## Create .env with generated passwords (once; never overwrites)
 init:
@@ -62,3 +62,11 @@ ui:
 ## Typecheck, tests and build of the screen (the same checks CI runs)
 ui-test:
 	cd frontend && npm run typecheck && npm test && npm run build
+
+## End to end: the real bot, a throwaway database and the real client of the screen (needs Docker)
+e2e:
+	bash scripts/e2e.sh
+
+## Mutation testing of the code that guards money and access (slow, no Docker)
+mutation:
+	bash scripts/mutation.sh

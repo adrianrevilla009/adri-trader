@@ -54,6 +54,17 @@ class AgentServiceTest {
     }
 
     @Test
+    void aMissingStrategyOrCapitalIsABadRequestNotACrash() {
+        assertThatThrownBy(() -> service.create(new CreateAgent("x1", null, Map.of(), List.of(A), new BigDecimal("40"), List.of()), "a"))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("strategyId");
+        assertThatThrownBy(() -> service.create(new CreateAgent("x1", " ", Map.of(), List.of(A), new BigDecimal("40"), List.of()), "a"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.create(new CreateAgent("x1", "trend", Map.of(), List.of(A), null, List.of()), "a"))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("capital");
+        assertThat(store.findAll()).isEmpty();
+    }
+
+    @Test
     void rejectsADuplicateIdWithAConflictNotAnOverwrite() {
         service.create(create("t1"), "alice");
         assertThatThrownBy(() -> service.create(create("t1"), "bob")).isInstanceOf(AgentAlreadyExistsException.class);
@@ -175,5 +186,35 @@ class AgentServiceTest {
         assertThat(service.limits().minimumCapital()).isEqualByComparingTo("40");
         assertThat(service.limits().minOrderAmount()).isEqualByComparingTo("10");
         assertThat(service.limits().maxWeightPerAsset()).isEqualByComparingTo("0.25");
+    }
+
+    // ---- found by mutation testing
+
+    @Test
+    void everyCommandNeedsAnActorForTheAuditTrail() {
+        service.create(create("t1"), "alice");
+        assertThatThrownBy(() -> service.update("t1", new UpdateAgent(null, null, new BigDecimal("50"), null), " "))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.stop("t1", null)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.resume("t1", "")).isInstanceOf(IllegalArgumentException.class);
+        assertThat(service.find("t1").orElseThrow().state()).isEqualTo("ACTIVE");
+        assertThat(service.find("t1").orElseThrow().capital()).isEqualByComparingTo("40");
+    }
+
+    @Test
+    void theAuditAndTheViewCarryEveryValue() {
+        service.create(new CreateAgent("t2", "trend", Map.of("window", new BigDecimal("100")), List.of(A),
+                new BigDecimal("40"), List.of(new StepSpec(30, new BigDecimal("60")))), "alice");
+        var audit = service.audit("t2");
+        assertThat(audit).hasSize(1);
+        assertThat(audit.get(0).agentId()).isEqualTo("t2");
+        assertThat(audit.get(0).actor()).isEqualTo("alice");
+        assertThat(audit.get(0).field()).isEqualTo("created");
+        assertThat(audit.get(0).newValue()).isEqualTo("trend");
+        var view = service.find("t2").orElseThrow();
+        assertThat(view.steps()).hasSize(1);
+        assertThat(view.steps().get(0).afterDays()).isEqualTo(30);
+        assertThat(view.steps().get(0).capital()).isEqualByComparingTo("60");
+        assertThat(view.universe()).containsExactly(A);
     }
 }

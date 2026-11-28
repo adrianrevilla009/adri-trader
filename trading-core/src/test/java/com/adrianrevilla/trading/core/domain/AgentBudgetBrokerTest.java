@@ -19,14 +19,15 @@ class AgentBudgetBrokerTest {
     private static final class Fake implements Broker {
         final BigDecimal cash;
         final List<OrderRequest> submitted = new ArrayList<>();
+        final List<UUID> cancelled = new ArrayList<>();
 
         Fake(String cash) {
             this.cash = new BigDecimal(cash);
         }
 
         public void submit(OrderRequest r) { submitted.add(r); }
-        public void cancel(UUID id) {}
-        public Optional<BrokerOrder> lookup(UUID id) { return Optional.empty(); }
+        public void cancel(UUID id) { cancelled.add(id); }
+        public Optional<BrokerOrder> lookup(UUID id) { return Optional.of(new BrokerOrder(id, OrderState.FILLED, BigDecimal.TEN, BigDecimal.ONE, BigDecimal.TEN)); }
         public Map<Isin, BigDecimal> positions() { return Map.of(ISIN, new BigDecimal("2")); }
         public BigDecimal cash() { return cash; }
     }
@@ -65,6 +66,16 @@ class AgentBudgetBrokerTest {
         broker.submit(order);
         assertThat(fake.submitted).containsExactly(order);
         assertThat(broker.positions()).containsEntry(ISIN, new BigDecimal("2"));
+    }
+
+    @Test
+    void cancelAndLookupGoToTheRealBroker() throws Exception {
+        var fake = new Fake("100");
+        var broker = new AgentBudgetBroker(fake, new BigDecimal("40"), () -> BigDecimal.ZERO);
+        UUID id = UUID.randomUUID();
+        broker.cancel(id);
+        assertThat(fake.cancelled).containsExactly(id);
+        assertThat(broker.lookup(id)).isPresent().get().extracting(BrokerOrder::internalId).isEqualTo(id);
     }
 
     @Test

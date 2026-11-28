@@ -258,4 +258,45 @@
       </plugin>
     </plugins>
   </build>
+
+  <profiles>
+    <!-- Mutation testing: `mvn -Pmutation -pl <module> test-compile org.pitest:pitest-maven:mutationCoverage`. Not part of the normal build
+         (it is slow): it changes the code in small ways and checks that a test fails each time. See docs/testing.md. -->
+    <profile>
+      <id>mutation</id>
+      <properties>
+        <!-- the code to mutate: this module's own classes by default; pass -Dmutation.code=<dir> to mutate another module's classes while running this module's tests -->
+        <mutation.code>${project.build.outputDirectory}</mutation.code>
+      </properties>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.pitest</groupId>
+            <artifactId>pitest-maven</artifactId>
+            <version>1.17.4</version>
+            <dependencies>
+              <dependency>
+                <groupId>org.pitest</groupId>
+                <artifactId>pitest-junit5-plugin</artifactId>
+                <version>1.2.1</version>
+              </dependency>
+              <dependency>
+                <!-- same platform version as junit-jupiter 5.12.2, or the engine and the launcher disagree -->
+                <groupId>org.junit.platform</groupId>
+                <artifactId>junit-platform-launcher</artifactId>
+                <version>1.12.2</version>
+              </dependency>
+            </dependencies>
+            <configuration>
+              <outputFormats><outputFormat>XML</outputFormat><outputFormat>HTML</outputFormat></outputFormats>
+              <timestampedReports>false</timestampedReports>
+              <threads>4</threads>
+              <failWhenNoMutations>false</failWhenNoMutations>
+              <mutableCodePaths><path>${mutation.code}</path></mutableCodePaths>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>

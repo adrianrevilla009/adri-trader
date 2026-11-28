@@ -171,4 +171,71 @@ class AgentConfigTest {
         assertThatThrownBy(() -> new EscalationStep(0, new BigDecimal("60")))
                 .isInstanceOf(IllegalArgumentException.class);
     }
+
+    @Test
+    void anAbsurdMagnitudeIsRejectedQuicklyInsteadOfEatingMemory() {
+        for (String huge : List.of("1e999999999", "1E31", "9".repeat(40), "1e+2147483647")) {
+            assertThatThrownBy(() -> agent("a", new BigDecimal(huge))).isInstanceOf(IllegalArgumentException.class);
+            assertThatThrownBy(() -> AgentConfig.create("a", "t", Map.of("p", new BigDecimal(huge)), UNIVERSE,
+                    new BigDecimal("40"), List.of(), TradingMode.DEMO, POLICY))
+                    .isInstanceOf(IllegalArgumentException.class);
+            assertThatThrownBy(() -> AgentConfig.create("a", "t", Map.of(), UNIVERSE, new BigDecimal("40"),
+                    List.of(new EscalationStep(30, new BigDecimal(huge))), TradingMode.DEMO, POLICY))
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+        assertThat(agent("a", new BigDecimal("1E29")).capital()).isEqualByComparingTo("1E29"); // the edge still works
+    }
+
+    @Test
+    void aTinyPositiveCapitalIsRejectedByThePolicyNotByACrash() {
+        assertThatThrownBy(() -> agent("a", new BigDecimal("1e-999999999"))).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void aZeroCapitalIsRejectedAsNotPositiveNotAsBelowTheMinimum() {
+        assertThatThrownBy(() -> agent("a", BigDecimal.ZERO)).isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("positive");
+        assertThatThrownBy(() -> agent("a", new BigDecimal("-1"))).hasMessageContaining("positive");
+    }
+
+    @Test
+    void twoStepsOnTheSameDayAreRejected() {
+        assertThatThrownBy(() -> AgentConfig.create("a", "t", Map.of(), UNIVERSE, new BigDecimal("40"),
+                List.of(new EscalationStep(30, new BigDecimal("60")), new EscalationStep(30, new BigDecimal("80"))),
+                TradingMode.DEMO, POLICY)).isInstanceOf(IllegalArgumentException.class).hasMessageContaining("order");
+    }
+
+    @Test
+    void aNewCapitalMustStillLeaveRoomBelowTheFirstStep() {
+        var a = AgentConfig.create("a", "t", Map.of(), UNIVERSE, new BigDecimal("40"),
+                List.of(new EscalationStep(30, new BigDecimal("60"))), TradingMode.DEMO, POLICY);
+        assertThat(a.withCapital(new BigDecimal("59"), POLICY).capital()).isEqualByComparingTo("59");
+        assertThatThrownBy(() -> a.withCapital(new BigDecimal("60"), POLICY))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> a.withCapital(new BigDecimal("100"), POLICY))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void restoreRebuildsAStoppedAgentWithTheSameValidationAndTheStepsKeepTheirValues() {
+        var steps = List.of(new EscalationStep(30, new BigDecimal("60.00")), new EscalationStep(90, new BigDecimal("80")));
+        var a = AgentConfig.restore("a", "t", Map.of(), UNIVERSE, new BigDecimal("40"), steps, TradingMode.DEMO,
+                AgentRunState.STOPPED, POLICY);
+        assertThat(a.state()).isEqualTo(AgentRunState.STOPPED);
+        assertThat(a.steps()).containsExactly(new EscalationStep(30, new BigDecimal("60")),
+                new EscalationStep(90, new BigDecimal("80")));
+        assertThatThrownBy(() -> AgentConfig.restore("A!", "t", Map.of(), UNIVERSE, new BigDecimal("40"), List.of(),
+                TradingMode.DEMO, AgentRunState.ACTIVE, POLICY)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> AgentConfig.restore("a", "t", Map.of(), UNIVERSE, new BigDecimal("40"), List.of(),
+                TradingMode.PROD, AgentRunState.ACTIVE, POLICY)).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void differentAgentsHaveDifferentHashesAndTheTextNamesTheAgent() {
+        var a = agent("a", new BigDecimal("40"));
+        var b = agent("b", new BigDecimal("41"));
+        assertThat(a.hashCode()).isNotEqualTo(b.hashCode());
+        assertThat(a.toString()).contains("a").contains("trend").contains("40");
+        assertThat(a).isNotEqualTo(b).isNotEqualTo(null).isNotEqualTo("a");
+    }
 }
