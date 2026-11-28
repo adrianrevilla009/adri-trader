@@ -27,7 +27,7 @@ sin tocar ficheros ni reiniciar, y poder compararlos en la cuenta demo.
 - **Parar un agente** = no envía órdenes nuevas y conserva sus posiciones. Cerrarlas es una acción explícita aparte.
 - **Un agente nuevo opera desde el siguiente ciclo diario.**
 - **Modo DEMO/PROD.** Existe como campo del sistema y de la API; hoy solo se acepta `DEMO` y cualquier otro valor da un error
-  claro. El cambio real a PROD (con MFA) queda para la fase 2 y requerirá su propia ADR.
+  claro. El cambio a PROD (con MFA y varios guardas, apagado por defecto) lo desarrolla la [ADR-0031](0031-cambio-a-prod-con-mfa.md).
 - **API.** Vive en `trading-adapter-web`, con casos de uso en `trading-application`. Token en cabecera (como el kill switch),
   escucha solo en loopback por defecto. Cada cambio queda auditado.
 - **UI.** React con Vite y TypeScript en `frontend/`, fuera de Maven, con su propio job en el CI (el check `CI gate` lo incluye).

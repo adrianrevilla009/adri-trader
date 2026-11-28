@@ -4,6 +4,7 @@ import com.adrianrevilla.trading.adapter.out.brokeretoro.EToroBroker;
 import com.adrianrevilla.trading.adapter.out.brokeretoro.EToroConfig;
 import com.adrianrevilla.trading.adapter.out.persistence.JdbcBrokerRefStore;
 import com.adrianrevilla.trading.adapter.out.persistence.JdbcTradingDayLog;
+import com.adrianrevilla.trading.application.port.in.ManageMode;
 import com.adrianrevilla.trading.application.port.in.RunAgentsDay;
 import com.adrianrevilla.trading.application.port.out.AgentStore;
 import com.adrianrevilla.trading.application.port.out.ArenaJournal;
@@ -99,7 +100,8 @@ public class LiveConfig {
     @Bean
     RunAgentsDay runAgentsDay(AgentStore agentStore, StrategyCatalog catalog, Broker liveBroker,
             ExecutionService liveExecution, OrderRepository orders, KillSwitch killSwitch, BarRepository bars,
-            TradingDayLog dayLog, ArenaJournal journal, Alerter alerter, EtoroProperties etoro) {
+            TradingDayLog dayLog, ArenaJournal journal, Alerter alerter, EtoroProperties etoro,
+            ManageMode modes) {
         Function<Set<Isin>, RiskConfig> riskFor = universe -> {
             RiskConfig d = RiskConfig.defaults(universe);
             // eToro's minimum order replaces the default minimum: smaller orders are dropped, not sent and rejected later
@@ -108,7 +110,7 @@ public class LiveConfig {
         };
         var factory = new LiveAgentDayFactory(catalog, bars, liveExecution, orders, liveBroker, killSwitch, dayLog,
                 journal, alerter, riskFor, etoro.instrumentIds().keySet(), "XETRA");
-        return new AgentsDayService(agentStore, factory, alerter);
+        return new AgentsDayService(agentStore, factory, alerter, () -> TradingMode.valueOf(modes.current().mode()));
     }
 
     /**

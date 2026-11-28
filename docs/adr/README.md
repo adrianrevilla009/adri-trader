@@ -34,3 +34,4 @@ Cada fila de «Decisiones cerradas» del [brief](../brief.md) tiene su ADR (0001
 | [0028](0028-ciclo-diario-demo-etoro.md) | Ciclo diario en la cuenta demo de eToro (solo demo, tope por orden) |
 | [0029](0029-yahoo-fuente-historico.md) | Yahoo Finance como fuente del histórico, contrastada con eToro |
 | [0030](0030-agentes-dinamicos-api-ui.md) | Agentes dinámicos: configuración en base de datos, API y UI |
+| [0031](0031-cambio-a-prod-con-mfa.md) | Cambio a PROD con MFA y varios guardas (sin bróker real) |

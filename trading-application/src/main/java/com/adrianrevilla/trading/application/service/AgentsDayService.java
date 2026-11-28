@@ -5,10 +5,12 @@ import com.adrianrevilla.trading.application.port.in.RunTradingDay;
 import com.adrianrevilla.trading.application.port.out.AgentStore;
 import com.adrianrevilla.trading.core.application.port.out.Alerter;
 import com.adrianrevilla.trading.core.domain.AgentConfig;
+import com.adrianrevilla.trading.core.domain.TradingMode;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Supplier;
 
 /**
  * Runs the daily loop of every active agent, one after another and each isolated from the rest: a failure while
@@ -25,15 +27,23 @@ public class AgentsDayService implements RunAgentsDay {
     private final AgentStore store;
     private final DayFactory factory;
     private final Alerter alerter;
+    private final Supplier<TradingMode> mode;
 
-    public AgentsDayService(AgentStore store, DayFactory factory, Alerter alerter) {
+    /** @param mode the mode selected for the system; while it is PROD nothing runs, because no real broker exists (ADR-0031) */
+    public AgentsDayService(AgentStore store, DayFactory factory, Alerter alerter, Supplier<TradingMode> mode) {
         this.store = Objects.requireNonNull(store, "store");
         this.factory = Objects.requireNonNull(factory, "factory");
         this.alerter = Objects.requireNonNull(alerter, "alerter");
+        this.mode = Objects.requireNonNull(mode, "mode");
     }
 
     @Override
     public List<AgentResult> run(LocalDate day) {
+        if (mode.get() != TradingMode.DEMO) {
+            alerter.alert(Alerter.Level.CRITICAL, "The daily cycle of " + day + " did not run: the mode is "
+                    + mode.get() + " and no real broker exists yet (ADR-0031). Switch back to DEMO to trade.");
+            return List.of();
+        }
         List<AgentResult> results = new ArrayList<>();
         for (AgentConfig agent : store.findActive()) {
             results.add(new AgentResult(agent.id(), runOne(agent, day)));

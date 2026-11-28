@@ -169,3 +169,23 @@
 - Cambio: `CLAUDE.md`, `docs/PRD.md`, `docs/TRD.md` y `docs/adr/0028` (nota de sustitución parcial por la ADR-0030).
 - Por qué: la documentación decía «sin frontend» y un solo agente; ahora hay pantalla y varios agentes, y lo no probado en eToro queda declarado.
 - Cómo comprobarlo: leer los cambios; no cambia código.
+
+34.
+- Cambio: `Totp` y `Base32` (dominio), `ModeService`, `ProdSwitchPolicy`, `ManageMode`, `ModeAuditLog`, `JdbcModeAuditLog` y la migración `V9__mode_audit.sql`.
+- Por qué: el cambio de DEMO a PROD pasa por varios guardas: función apagada por defecto, desafío de un solo uso, frase exacta, código MFA que no se repite, bloqueo tras 3 fallos y registro antes de cambiar.
+- Cómo comprobarlo: `mvn -pl trading-app -am test -Dtest=ModeServiceTest,TotpTest,JdbcModeAuditLogTest` → 28 + 22 + 3 tests, 0 fallos (incluye los vectores del RFC 6238).
+
+35.
+- Cambio: `AgentsDayService` (recibe el modo) y las rutas `POST /api/system/prod/challenge` y `/confirm` de `AgentsApiServer`, con los códigos 403 y 423.
+- Por qué: en PROD el ciclo diario no opera (no hay bróker real) y avisa; la API da una respuesta igual para cualquier factor incorrecto.
+- Cómo comprobarlo: `mvn -pl trading-app -am test -Dtest=AgentsDayServiceTest,AgentsApiServerTest,ApiProdContextTest` → 0 fallos; el último prueba todo con base de datos real y códigos MFA reales.
+
+36.
+- Cambio: `frontend/src/components/ProdSwitchDialog.tsx`, `App.tsx`, `api.ts` y `types.ts`.
+- Por qué: tres pantallas de confirmación (avisos con casillas, código y frase, última confirmación) y un banner rojo mientras se está en PROD.
+- Cómo comprobarlo: `make ui-test` → 29 tests, tipos y build sin errores.
+
+37.
+- Cambio: ADR-0031, `docs/runbook.md`, `CLAUDE.md`, `ProdProperties`, `application.yml`, `docker-compose.yml`, `.env.example` y `scripts/new-mfa-secret.sh`.
+- Por qué: dejar por escrito la decisión y cómo encender la función (apagada por defecto) con un secreto MFA propio.
+- Cómo comprobarlo: `bash scripts/new-mfa-secret.sh` imprime un secreto nuevo; `bash scripts/check-ops.sh` → OK.

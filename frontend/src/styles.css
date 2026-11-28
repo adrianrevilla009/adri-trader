@@ -242,3 +242,34 @@ code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.85em;
 }
+
+.prod {
+  border-color: var(--danger);
+}
+
+.danger-text {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+label.check {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  margin: 0.4rem 0;
+}
+
+button.danger {
+  background: var(--danger);
+  color: #fff;
+  border-color: var(--danger);
+}
+
+.prod-banner {
+  background: var(--danger);
+  color: #fff;
+  padding: 0.6rem 0.9rem;
+  border-radius: 8px;
+  margin: 0 0 1rem;
+  font-weight: 600;
+}

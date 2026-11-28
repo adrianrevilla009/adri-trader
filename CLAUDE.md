@@ -26,7 +26,7 @@ El proyecto adopta las guías de <https://github.com/adrianrevilla009/ai-project
 
 Reglas al añadir código:
 
-- Los agentes son **datos** (base de datos), no configuración: se crean y paran por la API (`ManageAgents`/`QueryAgents`) y una estrategia nueva es una `StrategyDefinition` registrada en el catálogo (ADR-0030). El modo es DEMO; PROD queda cerrado hasta la fase 2 (MFA + ADR).
+- Los agentes son **datos** (base de datos), no configuración: se crean y paran por la API (`ManageAgents`/`QueryAgents`) y una estrategia nueva es una `StrategyDefinition` registrada en el catálogo (ADR-0030). El modo es DEMO; PROD solo se alcanza con la función apagada por defecto, MFA y varias confirmaciones (ADR-0031), y no hay bróker real.
 - Un puerto nuevo es una **interfaz** en `…application.port.in|out` (o en `domain` si el dominio lo necesita); su implementación va en
   un adaptador. Un caso de uso nuevo = un puerto de entrada + un servicio que lo implementa.
 - Lectura y escritura separadas (CQRS de nivel 1): consultas por puertos de lectura con DTO propios; los comandos son casos de uso.

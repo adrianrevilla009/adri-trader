@@ -64,6 +64,11 @@ trading:
     port: 8100
     bind-address: ${TRADING_API_BIND_ADDRESS:127.0.0.1}
     allowed-origin: ${TRADING_API_ALLOWED_ORIGIN:http://localhost:5173}
+  prod:
+    # Switch to PROD (ADR-0031). OFF by default. With it on, the secret is required (scripts/new-mfa-secret.sh).
+    # Even in PROD no real broker exists yet: the daily cycle does not trade while the mode is PROD.
+    enabled: ${TRADING_PROD_ENABLED:false}
+    mfa-secret: ${TRADING_PROD_MFA_SECRET:}
   killswitch:
     # Endpoint disabled unless a token of 16+ characters is set. Loopback only.
     token: ${KILL_SWITCH_TOKEN:}
