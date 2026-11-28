@@ -5,6 +5,7 @@ import { AgentForm } from "./components/AgentForm";
 import type { FormResult } from "./components/AgentForm";
 import { AgentTable } from "./components/AgentTable";
 import { AuditPanel } from "./components/AuditPanel";
+import { ProdSwitchDialog } from "./components/ProdSwitchDialog";
 import { TokenGate } from "./components/TokenGate";
 import type { Agent, AuditEntry, Limits, ModeInfo, Strategy } from "./types";
 
@@ -19,7 +20,7 @@ interface Data {
   agents: Agent[];
 }
 
-type View = { kind: "list" } | { kind: "create" } | { kind: "edit"; agent: Agent } | { kind: "audit"; id: string; entries: AuditEntry[] };
+type View = { kind: "prod" } | { kind: "list" } | { kind: "create" } | { kind: "edit"; agent: Agent } | { kind: "audit"; id: string; entries: AuditEntry[] };
 
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : "Error desconocido";
@@ -88,6 +89,13 @@ export function App({ api: injected }: { api?: Api } = {}) {
     }
   }
 
+  /** Going back to DEMO is the safe direction: one confirmation, no MFA. */
+  function backToDemo() {
+    if (window.confirm("¿Volver a DEMO?")) {
+      void run((client) => client.setMode("DEMO"));
+    }
+  }
+
   async function submit(result: FormResult) {
     await run(
       (client) => (result.kind === "create" ? client.createAgent(result.body) : client.updateAgent(result.id, result.body)),
@@ -126,22 +134,34 @@ export function App({ api: injected }: { api?: Api } = {}) {
       <header className="bar">
         <h1>Agentes de trading</h1>
         <div className="row">
-          <label className="inline">
-            Modo
-            <select
-              value={data?.mode.mode ?? "DEMO"}
-              onChange={(e) => void run((client) => client.setMode(e.target.value))}
-              aria-label="Modo"
-            >
-              <option value="DEMO">DEMO</option>
-              <option value="PROD" disabled={!data?.mode.available.includes("PROD")}>
-                PROD (no disponible)
-              </option>
-            </select>
-          </label>
+          <span className="mode" aria-label="Modo">
+            Modo: <strong>{data?.mode.mode ?? "DEMO"}</strong>
+          </span>
+          {data?.mode.mode === "PROD" ? (
+            <button disabled={busy} onClick={() => backToDemo()}>
+              Volver a DEMO
+            </button>
+          ) : (
+            data?.mode.prodEnabled === true && (
+              <button disabled={busy || data.mode.lockedUntil !== null} onClick={() => setView({ kind: "prod" })}>
+                Cambiar a PROD…
+              </button>
+            )
+          )}
           {injected === undefined && <button onClick={logout}>Salir</button>}
         </div>
       </header>
+
+      {data?.mode.mode === "PROD" && (
+        <p className="prod-banner" role="status">
+          MODO PROD ACTIVO. Hoy no existe un bróker real: el ciclo diario no opera hasta volver a DEMO.
+        </p>
+      )}
+      {data?.mode.lockedUntil != null && (
+        <p className="banner" role="alert">
+          El cambio a PROD está bloqueado hasta {data.mode.lockedUntil} por intentos fallidos.
+        </p>
+      )}
 
       {error && (
         <p className="banner" role="alert">
@@ -153,6 +173,20 @@ export function App({ api: injected }: { api?: Api } = {}) {
         <p className="empty">Cargando…</p>
       ) : (
         <>
+          {view.kind === "prod" && (
+            <ProdSwitchDialog
+              api={api}
+              phrase={data.mode.confirmPhrase}
+              onCancel={() => {
+                setView({ kind: "list" });
+                void load(api);
+              }}
+              onDone={() => {
+                setView({ kind: "list" });
+                void load(api);
+              }}
+            />
+          )}
           {view.kind === "list" && (
             <section className="card">
               <div className="row between">

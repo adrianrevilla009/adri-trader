@@ -87,5 +87,7 @@ class ApiContextTest {
 
         assertThat(call("PUT", "/api/system/mode", "{\"mode\":\"PROD\"}").statusCode()).isEqualTo(409);
         assertThat(JSON.readTree(call("GET", "/api/system", null).body()).get("mode").asText()).isEqualTo("DEMO");
+        assertThat(JSON.readTree(call("GET", "/api/system", null).body()).get("prodEnabled").asBoolean()).isFalse();
+        assertThat(call("POST", "/api/system/prod/challenge", null).statusCode()).isEqualTo(409); // the flag is off
     }
 }

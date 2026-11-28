@@ -54,6 +54,9 @@ services:
       # JSON API of the agents screen (ADR-0030): off while the token is empty. Published on the host loopback only.
       TRADING_API_TOKEN: ${TRADING_API_TOKEN:-}
       TRADING_API_BIND_ADDRESS: 0.0.0.0
+      # Switch to PROD (ADR-0031): off by default; needs the MFA secret when on. No real broker exists yet.
+      TRADING_PROD_ENABLED: ${TRADING_PROD_ENABLED:-false}
+      TRADING_PROD_MFA_SECRET: ${TRADING_PROD_MFA_SECRET:-}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
       # Market data: Yahoo (read-only GET requests). The first start downloads the history; later starts only add new days.

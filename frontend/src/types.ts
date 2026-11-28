@@ -44,6 +44,19 @@ export interface AuditEntry {
 export interface ModeInfo {
   mode: string;
   available: string[];
+  /** The PROD switch feature flag of the server (off by default). */
+  prodEnabled: boolean;
+  /** ISO instant until which PROD confirmations are refused, or null. */
+  lockedUntil: string | null;
+  /** What the person must type to confirm the switch. */
+  confirmPhrase: string;
+}
+
+/** Step one of the switch to PROD: a one-use challenge that expires. */
+export interface ProdChallenge {
+  challengeId: string;
+  expiresAt: string;
+  confirmPhrase: string;
 }
 
 export interface Limits {

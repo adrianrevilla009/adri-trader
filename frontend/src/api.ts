@@ -4,6 +4,7 @@ import type {
   CreateAgentBody,
   Limits,
   ModeInfo,
+  ProdChallenge,
   Strategy,
   UpdateAgentBody,
 } from "./types";
@@ -62,6 +63,9 @@ export function createApi(baseUrl: string, token: string, actor?: string) {
   return {
     system: () => request<ModeInfo>("GET", "/api/system"),
     setMode: (mode: string) => request<ModeInfo>("PUT", "/api/system/mode", { mode }),
+    requestProd: () => request<ProdChallenge>("POST", "/api/system/prod/challenge"),
+    confirmProd: (challengeId: string, code: string, phrase: string) =>
+      request<ModeInfo>("POST", "/api/system/prod/confirm", { challengeId, code, phrase }),
     strategies: () => request<Strategy[]>("GET", "/api/strategies"),
     instruments: () => request<string[]>("GET", "/api/instruments"),
     limits: () => request<Limits>("GET", "/api/limits"),

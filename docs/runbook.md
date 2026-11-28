@@ -132,7 +132,7 @@ agente nuevo opera desde el **siguiente** ciclo. Un fallo en un agente se avisa 
 | Instrumentos | solo los que tienen id de eToro en `TRADING_ETORO_INSTRUMENTS` |
 | Parar un agente | deja de enviar órdenes **y conserva sus posiciones**; cerrarlas es una acción aparte (aún no existe en la pantalla) |
 | Pasos de escalado | los guarda el agente; subir de paso lo confirma una persona (el capital no cambia solo) |
-| Modo PROD | la API contesta 409 y avisa por Telegram; hace falta MFA y su propia ADR (fase 2) |
+| Modo PROD | apagado por defecto; ver la sección «Cambiar a PROD (MFA)» de abajo. Aun así no hay bróker real: en PROD el ciclo no opera |
 
 **Cuenta compartida:** todos los agentes comparten la cuenta de eToro, así que la reconciliación compara la **suma** de los libros con
 la cuenta. Cada agente ve solo su presupuesto: su capital menos lo que ya tiene invertido o pendiente de comprar.
@@ -152,3 +152,31 @@ el límite de 20 escrituras por minuto con muchos agentes.
 - [ ] Verificada la lista de [`fase0-verificacion-etoro.md`](fase0-verificacion-etoro.md).
 - [ ] Gate 4 firmado con los criterios de la fase 4.
 - [ ] Tope de escalado definido por la persona responsable (ADR-0008).
+
+## Cambiar a PROD (MFA)
+
+Decisión: [ADR-0031](adr/0031-cambio-a-prod-con-mfa.md). **No existe bróker real**: pasar a PROD no permite operar con dinero real;
+solo prueba el interruptor, y mientras el modo sea PROD el ciclo diario **no opera** y avisa. Apagado por defecto.
+
+**Encenderlo** (solo si quieres probar el proceso):
+
+1. `bash scripts/new-mfa-secret.sh` imprime un secreto nuevo. Añádelo a una app de autenticación («introducir clave de configuración»,
+   basada en tiempo, 6 cifras, 30 s) y pon en `.env`: `TRADING_PROD_ENABLED=true` y `TRADING_PROD_MFA_SECRET=<el secreto>`.
+2. Reinicia el bot. En la pantalla aparece el botón «Cambiar a PROD…».
+
+**Proceso en la pantalla:** (1) marcar las tres casillas y «Pedir confirmación»; (2) escribir el código de la app y la frase
+`SWITCH TO PROD`; (3) «Sí, cambiar a PROD ahora». Todo el proceso debe hacerse antes de que caduque el desafío (120 s).
+
+| Situación | Resultado |
+| --- | --- |
+| Función apagada | 409; queda registrado y avisa |
+| Código, frase o desafío incorrectos o caducados | 403 siempre igual; se gasta el desafío; hay que empezar de nuevo |
+| 3 fallos seguidos | 423: bloqueado 15 minutos; aviso CRITICAL |
+| Mismo código dos veces | rechazado (anti-repetición) |
+| Falla el registro | no se cambia el modo |
+| Reinicio del bot | vuelve a DEMO |
+
+**Volver a DEMO:** botón «Volver a DEMO» (sin MFA). **Quién hizo qué:** tabla `mode_audit` (no admite `UPDATE` ni `DELETE`).
+
+**No verificado:** la entrega real de los avisos a Telegram; el flujo con una app de autenticación real (probado con códigos TOTP
+calculados en las pruebas y con los vectores del RFC 6238); la pantalla en un navegador real.

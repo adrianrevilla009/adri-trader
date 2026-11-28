@@ -39,6 +39,7 @@ class AgentsDayServiceTest {
     };
 
     private AgentsDayService service;
+    private TradingMode selected = TradingMode.DEMO;
 
     @BeforeEach
     void setUp() {
@@ -48,12 +49,24 @@ class AgentsDayServiceTest {
                 throw new IllegalStateException("cannot build " + agent.id());
             }
             return RunTradingDay.Result.of(Outcome.TRADED, "ok " + agent.id());
-        }, (level, msg) -> alerts.add(level + ":" + msg));
+        }, (level, msg) -> alerts.add(level + ":" + msg), () -> selected);
     }
 
     private static AgentConfig agent(String id) {
         return AgentConfig.create(id, "trend", Map.of(), List.of(new Isin("IE00B4L5Y983")), new BigDecimal("40"),
                 List.of(), TradingMode.DEMO, POLICY);
+    }
+
+    @Test
+    void whenTheModeIsProdNothingRunsAndItIsReportedCritically() {
+        store.save(agent("a"), "t");
+        selected = TradingMode.PROD;
+
+        assertThat(service.run(DAY)).isEmpty();
+
+        assertThat(ran).isEmpty();
+        assertThat(alerts).hasSize(1);
+        assertThat(alerts.get(0)).startsWith("CRITICAL").contains("PROD");
     }
 
     @Test

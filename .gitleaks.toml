@@ -8,4 +8,5 @@ description = "Known placeholders: test fixture token and documentation example"
 regexes = [
   '''0123456789abcdef-secret''',
   '''una-clave-de-16-o-mas-caracteres''',
+  '''GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ''', # test-only MFA secret: the RFC 6238 test key 1234567890... in Base32
 ]

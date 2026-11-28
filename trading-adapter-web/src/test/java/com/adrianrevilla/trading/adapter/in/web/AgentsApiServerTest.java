@@ -35,6 +35,8 @@ class AgentsApiServerTest {
     private final List<String> actors = new ArrayList<>();
     private final HttpClient http = HttpClient.newHttpClient();
     private AgentsApiServer server;
+    private String prodBehaviour = "ok";
+    private final List<String> confirmed = new ArrayList<>();
 
     /** Fake use cases: enough behaviour to see how the HTTP layer maps requests, answers and errors. */
     private final class Fake implements ManageAgents, QueryAgents, ManageMode {
@@ -125,7 +127,29 @@ class AgentsApiServerTest {
 
         @Override
         public ModeView current() {
-            return new ModeView("DEMO", List.of("DEMO"));
+            return new ModeView("DEMO", List.of("DEMO"), false, null, "SWITCH TO PROD");
+        }
+
+        @Override
+        public com.adrianrevilla.trading.application.read.ProdChallengeView requestProdSwitch(String actor) {
+            actors.add(actor);
+            switch (prodBehaviour) {
+                case "locked" -> throw new SwitchLockedException("2026-12-01T10:15:00Z");
+                case "off" -> throw new ModeNotAvailableException("the switch to PROD is disabled");
+                default -> { }
+            }
+            return new com.adrianrevilla.trading.application.read.ProdChallengeView("c1", "2026-12-01T10:02:00Z",
+                    "SWITCH TO PROD");
+        }
+
+        @Override
+        public ModeView confirmProdSwitch(String id, String code, String phrase, String actor) {
+            actors.add(actor);
+            confirmed.add(id + "|" + code + "|" + phrase);
+            if (!code.equals("123456")) {
+                throw new ConfirmationRejectedException();
+            }
+            return new ModeView("PROD", List.of("DEMO", "PROD"), true, null, "SWITCH TO PROD");
         }
 
         @Override
@@ -194,7 +218,8 @@ class AgentsApiServerTest {
     @Test
     void everyRouteNeedsTheTokenAndANoTokenCallChangesNothing() throws Exception {
         for (String[] r : new String[][] {{"GET", "/api/agents"}, {"POST", "/api/agents"}, {"GET", "/api/system"},
-                {"PUT", "/api/system/mode"}, {"GET", "/api/strategies"}, {"POST", "/api/agents/x/stop"}}) {
+                {"PUT", "/api/system/mode"}, {"POST", "/api/system/prod/challenge"},
+                {"POST", "/api/system/prod/confirm"}, {"GET", "/api/strategies"}, {"POST", "/api/agents/x/stop"}}) {
             assertThat(call(r[0], r[1], r[0].equals("GET") ? null : NEW_AGENT, null).status()).as(r[1]).isEqualTo(401);
             assertThat(call(r[0], r[1], null, "Bearer wrong").status()).as(r[1]).isEqualTo(401);
         }
@@ -314,5 +339,43 @@ class AgentsApiServerTest {
         assertThat(prod.status()).isEqualTo(409);
         assertThat(prod.json().get("error").asText()).contains("PROD");
         assertThat(authed("PUT", "/api/system/mode", "{}").status()).isEqualTo(400);
+    }
+
+    @Test
+    void theTwoStepsToProdAnswerWithTheRightStatusCodes() throws Exception {
+        var challenge = authed("POST", "/api/system/prod/challenge", null);
+        assertThat(challenge.status()).isEqualTo(200);
+        assertThat(challenge.json().get("challengeId").asText()).isEqualTo("c1");
+        assertThat(challenge.json().get("confirmPhrase").asText()).isEqualTo("SWITCH TO PROD");
+
+        var ok = authed("POST", "/api/system/prod/confirm",
+                "{\"challengeId\":\"c1\",\"code\":\"123456\",\"phrase\":\"SWITCH TO PROD\"}");
+        assertThat(ok.status()).isEqualTo(200);
+        assertThat(ok.json().get("mode").asText()).isEqualTo("PROD");
+        assertThat(confirmed).containsExactly("c1|123456|SWITCH TO PROD");
+
+        var bad = authed("POST", "/api/system/prod/confirm",
+                "{\"challengeId\":\"c1\",\"code\":\"000000\",\"phrase\":\"SWITCH TO PROD\"}");
+        assertThat(bad.status()).isEqualTo(403);
+        assertThat(bad.json().get("error").asText()).contains("rejected");
+    }
+
+    @Test
+    void theFlagOffIs409AndALockoutIs423() throws Exception {
+        prodBehaviour = "off";
+        assertThat(authed("POST", "/api/system/prod/challenge", null).status()).isEqualTo(409);
+        prodBehaviour = "locked";
+        var locked = authed("POST", "/api/system/prod/challenge", null);
+        assertThat(locked.status()).isEqualTo(423);
+        assertThat(locked.json().get("error").asText()).contains("locked");
+    }
+
+    @Test
+    void theProdStepsAcceptOnlyPostAndAStrictBody() throws Exception {
+        assertThat(authed("GET", "/api/system/prod/challenge", null).status()).isEqualTo(405);
+        assertThat(authed("PUT", "/api/system/prod/confirm", "{}").status()).isEqualTo(405);
+        assertThat(authed("POST", "/api/system/prod/confirm", "").status()).isEqualTo(400);
+        assertThat(authed("POST", "/api/system/prod/confirm", "{\"code\":\"1\",\"extra\":1}").status()).isEqualTo(400);
+        assertThat(confirmed).isEmpty();
     }
 }

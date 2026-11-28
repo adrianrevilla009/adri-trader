@@ -17,9 +17,11 @@ const trendAgent: Agent = {
   state: "ACTIVE",
 };
 
+const DEMO_OFF = { mode: "DEMO", available: ["DEMO"], prodEnabled: false, lockedUntil: null, confirmPhrase: "SWITCH TO PROD" };
+
 function fakeApi(agents: Agent[] = [trendAgent]): { api: Api; mocks: Record<string, ReturnType<typeof vi.fn>> } {
   const mocks = {
-    system: vi.fn().mockResolvedValue({ mode: "DEMO", available: ["DEMO"] }),
+    system: vi.fn().mockResolvedValue(DEMO_OFF),
     setMode: vi.fn().mockRejectedValue(new ApiError(409, "PROD is not available yet")),
     strategies: vi.fn().mockResolvedValue([
       { id: "buy-and-hold", name: "Buy and hold", description: "d", params: [] },
@@ -150,12 +152,41 @@ describe("App", () => {
     expect(screen.getByText("created")).toBeInTheDocument();
   });
 
-  it("does not offer PROD and shows the refusal if the backend still says no", async () => {
+  it("shows a loud banner and a way back when the system is in PROD", async () => {
     const { api, mocks } = fakeApi();
+    mocks.system!.mockResolvedValue({ ...DEMO_OFF, mode: "PROD", available: ["DEMO", "PROD"], prodEnabled: true });
+    mocks.setMode!.mockResolvedValue(DEMO_OFF);
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const user = userEvent.setup();
     render(<App api={api} />);
 
-    const option = (await screen.findByRole("option", { name: "PROD (no disponible)" })) as HTMLOptionElement;
-    expect(option.disabled).toBe(true);
-    expect(mocks.setMode).not.toHaveBeenCalled();
+    expect(await screen.findByRole("status")).toHaveTextContent("MODO PROD ACTIVO");
+    expect(screen.queryByRole("button", { name: "Cambiar a PROD…" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Volver a DEMO" }));
+    expect(mocks.setMode).toHaveBeenCalledWith("DEMO");
+  });
+
+  it("opens the PROD dialog only when the flag is on, and a lockout disables it", async () => {
+    const { api, mocks } = fakeApi();
+    mocks.system!.mockResolvedValue({ ...DEMO_OFF, available: ["DEMO", "PROD"], prodEnabled: true });
+    const user = userEvent.setup();
+    const { unmount } = render(<App api={api} />);
+    await user.click(await screen.findByRole("button", { name: "Cambiar a PROD…" }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    unmount();
+
+    mocks.system!.mockResolvedValue({ ...DEMO_OFF, prodEnabled: true, lockedUntil: "2026-12-01T10:15:00Z" });
+    render(<App api={api} />);
+    expect(await screen.findByRole("button", { name: "Cambiar a PROD…" })).toBeDisabled();
+    expect(screen.getByRole("alert")).toHaveTextContent("bloqueado");
+  });
+
+  it("offers no way to PROD while the feature flag is off", async () => {
+    const { api } = fakeApi();
+    render(<App api={api} />);
+
+    expect(await screen.findByText("DEMO")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Cambiar a PROD…" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("option")).not.toBeInTheDocument();
   });
 });

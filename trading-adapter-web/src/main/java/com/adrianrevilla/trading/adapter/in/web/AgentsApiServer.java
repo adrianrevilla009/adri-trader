@@ -28,7 +28,9 @@ import java.util.regex.Pattern;
  *
  * <pre>
  * GET  /api/system                 mode and available modes
- * PUT  /api/system/mode            {"mode":"DEMO"}; PROD answers 409 until it is built
+ * PUT  /api/system/mode            {"mode":"DEMO"}; PROD is refused (409): it has its own two steps
+ * POST /api/system/prod/challenge   step one to PROD (409 while the feature flag is off, 423 when locked)
+ * POST /api/system/prod/confirm     step two: {"challengeId","code","phrase"} (403 for any wrong factor)
  * GET  /api/strategies             catalog with parameter descriptions
  * GET  /api/instruments            ISINs an agent universe may use
  * GET  /api/agents                 list
@@ -41,7 +43,7 @@ import java.util.regex.Pattern;
  * </pre>
  *
  * Errors are {@code {"error": "message"}}: 400 invalid input, 401 no token, 404 unknown agent or route, 405 wrong
- * method, 409 duplicate id or unavailable mode, 413 body above 64 KiB.
+ * method, 403 wrong MFA factor, 409 duplicate id or unavailable mode, 413 body above 64 KiB. 423 PROD confirmations locked after repeated failures.
  */
 public final class AgentsApiServer {
     private static final int MAX_BODY = 64 * 1024;
@@ -56,6 +58,9 @@ public final class AgentsApiServer {
             .build();
 
     private record ModeRequest(String mode) {
+    }
+
+    private record ConfirmRequest(String challengeId, String code, String phrase) {
     }
 
     /** An answer decided inside the HTTP layer (bad request, no token, unknown route...). */
@@ -135,6 +140,10 @@ public final class AgentsApiServer {
             reply(ex, e.status(), Map.of("error", e.getMessage()));
         } catch (ManageAgents.AgentNotFoundException e) {
             reply(ex, 404, Map.of("error", e.getMessage()));
+        } catch (ManageMode.ConfirmationRejectedException e) {
+            reply(ex, 403, Map.of("error", e.getMessage()));
+        } catch (ManageMode.SwitchLockedException e) {
+            reply(ex, 423, Map.of("error", e.getMessage()));
         } catch (ManageAgents.AgentAlreadyExistsException | ManageMode.ModeNotAvailableException e) {
             reply(ex, 409, Map.of("error", e.getMessage()));
         } catch (IllegalArgumentException e) {
@@ -160,6 +169,13 @@ public final class AgentsApiServer {
                 throw new ApiError(400, "mode is required: one of DEMO, PROD");
             }
             reply(ex, 200, mode.switchTo(req.mode(), actor(ex)));
+        } else if (p.length == 5 && p[2].equals("system") && p[3].equals("prod") && p[4].equals("challenge")) {
+            allow(method, "POST");
+            reply(ex, 200, mode.requestProdSwitch(actor(ex)));
+        } else if (p.length == 5 && p[2].equals("system") && p[3].equals("prod") && p[4].equals("confirm")) {
+            allow(method, "POST");
+            ConfirmRequest req = body(ex, ConfirmRequest.class);
+            reply(ex, 200, mode.confirmProdSwitch(req.challengeId(), req.code(), req.phrase(), actor(ex)));
         } else if (p.length == 3 && p[2].equals("strategies")) {
             allow(method, "GET");
             reply(ex, 200, queries.strategies());
