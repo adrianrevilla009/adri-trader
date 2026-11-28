@@ -14,7 +14,7 @@ final class InMemoryAgentStore implements AgentStore {
     private final List<AgentAuditEntry> audit = new ArrayList<>();
 
     @Override
-    public void save(AgentConfig agent, String changedBy) {
+    public synchronized void save(AgentConfig agent, String changedBy) {
         AgentConfig old = agents.put(agent.id(), agent);
         if (old == null) {
             audit.add(new AgentAuditEntry(agent.id(), changedBy, "created", null, agent.strategyId()));
@@ -24,22 +24,22 @@ final class InMemoryAgentStore implements AgentStore {
     }
 
     @Override
-    public Optional<AgentConfig> find(String id) {
+    public synchronized Optional<AgentConfig> find(String id) {
         return Optional.ofNullable(agents.get(id));
     }
 
     @Override
-    public List<AgentConfig> findAll() {
+    public synchronized List<AgentConfig> findAll() {
         return List.copyOf(agents.values());
     }
 
     @Override
-    public List<AgentConfig> findActive() {
+    public synchronized List<AgentConfig> findActive() {
         return agents.values().stream().filter(a -> a.state() == AgentRunState.ACTIVE).toList();
     }
 
     @Override
-    public List<AgentAuditEntry> audit(String agentId) {
+    public synchronized List<AgentAuditEntry> audit(String agentId) {
         return audit.stream().filter(e -> e.agentId().equals(agentId)).toList();
     }
 }

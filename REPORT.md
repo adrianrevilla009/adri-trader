@@ -194,3 +194,28 @@
 - Cambio: `.gitleaks.toml` (se permite el valor exacto del secreto MFA de prueba).
 - Por qué: el escáner de secretos marcaba la clave de prueba de las pruebas; es la clave pública de ejemplo del RFC 6238, no un secreto real.
 - Cómo comprobarlo: el job «Secret scan» del PR pasa; un secreto distinto en los mismos ficheros se seguiría detectando.
+
+39.
+- Cambio: `ApiLoadTest`, `ApiSecurityTest`, `ApiContractTest`, `DatabaseChaosTest`, `ModeServiceChaosTest`, `PropertyTest`, `MigrationsTest` y `contract/api-contract.json` (más `contract.test.ts` en la pantalla).
+- Por qué: pruebas de carga, carreras, seguridad con entradas hostiles, caos (base de datos congelada, alertas y registro caídos) y contrato entre servidor y pantalla.
+- Cómo comprobarlo: `mvn verify` → todo verde; estas pruebas encontraron errores reales (500 por `null`, número enorme que agotaba memoria, API bloqueada con la base de datos congelada, `TRUNCATE` que saltaba la inmutabilidad).
+
+40.
+- Cambio: `AgentService`, `AgentConfig`, `StrategyCatalog`, `AgentsApiServer`, `ModeService`, `application.yml` y la migración `V10__forbid_truncate.sql`.
+- Por qué: arreglar lo que encontraron las pruebas: `null` da 400 y no 500, límite de magnitud en números, 16 hilos y tiempos de espera con la base de datos, `TRUNCATE` prohibido en libro y auditorías, alertas de mejor esfuerzo, comandos sincronizados.
+- Cómo comprobarlo: `mvn verify` → los tests nuevos de cada caso pasan; `make e2e` → «E2E OK».
+
+41.
+- Cambio: `scripts/e2e.sh`, `frontend/e2e/*`, `frontend/vitest.e2e.config.ts` y el objetivo `make e2e`.
+- Por qué: la prueba de punta a punta: el jar real, PostgreSQL real, el cliente real de la pantalla y códigos MFA reales, con un reinicio a mitad y comprobación de la base de datos.
+- Cómo comprobarlo: `make e2e` → «E2E OK» (≈ 75 s, necesita Docker).
+
+42.
+- Cambio: perfil `mutation` del `pom.xml`, `scripts/mutation.sh`, `make mutation`, tests nuevos (`RulesBoundaryTest`, `ExecutionServiceStatesTest`, `SafetyPartsTest`, `ProdSwitchPolicyTest`…) y tests de aplicación movidos a `trading-application`.
+- Por qué: la mutación mide si los tests notarían un cambio; dominio 96 %, aplicación 100 %, riesgo 96 %, ejecución 99 %, con mínimo por módulo.
+- Cómo comprobarlo: `make mutation` → «MUTATION OK».
+
+43.
+- Cambio: `ci.yml` (jobs `e2e` y `mutation` dentro del `CI gate`), `docs/testing.md`, ADR-0032 y `CLAUDE.md`.
+- Por qué: que la puerta de CI exija estas pruebas y que quede escrito qué se prueba, cómo y qué NO está cubierto.
+- Cómo comprobarlo: el PR muestra los jobs `End to end` y `Mutation testing` en verde dentro de `CI gate`.

@@ -1,6 +1,7 @@
 /// <reference types="vitest/config" />
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
+import { configDefaults } from "vitest/config";
 
 // In development the screen calls "/api" on its own origin and Vite forwards it to the backend on the loopback
 // address, so the browser never needs CORS and the token never leaves this machine.
@@ -16,5 +17,7 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./src/setupTests.ts"],
     css: false,
+    // the end-to-end tests need the running bot: scripts/e2e.sh runs them with their own config
+    exclude: [...configDefaults.exclude, "e2e/**"],
   },
 });

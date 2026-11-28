@@ -86,4 +86,9 @@ class StrategyCatalogTest {
         assertThat(extended.list()).extracting(StrategyDefinition::id).contains("custom");
         assertThat(extended.resolveParams("custom", Map.of())).containsEntry("n", new BigDecimal("5"));
     }
+
+    @Test
+    void aNullIdIsSimplyNotFound() {
+        assertThat(new StrategyCatalog(BuiltinStrategies.all()).find(null)).isEmpty();
+    }
 }

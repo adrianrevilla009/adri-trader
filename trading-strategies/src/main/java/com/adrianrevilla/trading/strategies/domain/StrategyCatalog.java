@@ -27,7 +27,7 @@ public final class StrategyCatalog {
     }
 
     public Optional<StrategyDefinition> find(String id) {
-        return Optional.ofNullable(byId.get(id));
+        return id == null ? Optional.empty() : Optional.ofNullable(byId.get(id)); // Map.of throws on a null key
     }
 
     /**

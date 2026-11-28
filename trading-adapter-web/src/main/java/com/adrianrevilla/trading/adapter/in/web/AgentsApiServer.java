@@ -18,6 +18,10 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 /**
@@ -47,6 +51,8 @@ import java.util.regex.Pattern;
  */
 public final class AgentsApiServer {
     private static final int MAX_BODY = 64 * 1024;
+    private static final int WORKERS = 16;
+    private static final int QUEUE = 128;
     private static final int MAX_DRAIN = 10 * 1024 * 1024;
     private static final Pattern ACTOR = Pattern.compile("[A-Za-z0-9._@-]{1,64}");
     private static final ObjectMapper JSON = JsonMapper.builder()
@@ -78,6 +84,7 @@ public final class AgentsApiServer {
     }
 
     private final HttpServer server;
+    private final ExecutorService workers;
     private final ManageAgents commands;
     private final QueryAgents queries;
     private final ManageMode mode;
@@ -105,6 +112,13 @@ public final class AgentsApiServer {
         this.token = token.getBytes(StandardCharsets.UTF_8);
         this.allowedOrigin = allowedOrigin == null ? "" : allowedOrigin;
         this.server = HttpServer.create(new InetSocketAddress(InetAddress.getByName(bindAddress), port), 0);
+        // Several workers: with the default single thread, one request stuck on a frozen database would block every other one.
+        // The queue is bounded; when it is full the dispatcher runs the request itself, which slows the clients down
+        // instead of growing memory without limit.
+        this.workers = new ThreadPoolExecutor(WORKERS, WORKERS, 0L, TimeUnit.MILLISECONDS,
+                new ArrayBlockingQueue<>(QUEUE), Thread.ofPlatform().name("agents-api-", 1).daemon(true).factory(),
+                new ThreadPoolExecutor.CallerRunsPolicy());
+        server.setExecutor(workers);
         server.createContext("/api", this::handle);
     }
 
@@ -114,6 +128,7 @@ public final class AgentsApiServer {
 
     public void stop() {
         server.stop(0);
+        workers.shutdownNow();
     }
 
     public int port() {

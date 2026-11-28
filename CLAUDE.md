@@ -43,6 +43,7 @@ corrige el código o escribe un ADR que cambie la regla.** Cada regla tiene una 
 - `make up` levanta todo (PostgreSQL, bot, copias, Prometheus, Alertmanager, Grafana, Tempo, OTel); `make down`, `make reset`.
 - `make ui-install` / `make ui` / `make ui-test`: la pantalla de agentes (`frontend/`, necesita `TRADING_API_TOKEN` en el bot).
 - `make test` = `mvn verify` (Testcontainers: necesita Docker). `make check-ops` valida Compose y alertas. `make semgrep` pasa las políticas estáticas de la fábrica (una excepción lleva `// nosemgrep: regla -- motivo`). `make smoke` prueba la pila completa.
+- `make e2e` (bot real + base de datos real + cliente real, con MFA y reinicio; Docker) y `make mutation` (PIT sobre el código de dinero y acceso, con puntuación mínima). Estrategia de pruebas: `docs/testing.md`.
 - `make hooks` activa los hooks locales (commits convencionales, sin secretos, sin commits ni pushes a `main`).
 
 ## Convenciones

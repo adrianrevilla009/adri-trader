@@ -20,9 +20,15 @@
     <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-strategies</artifactId></dependency>
     <dependency><groupId>org.slf4j</groupId><artifactId>slf4j-api</artifactId></dependency>
   </dependencies>
+  <!-- Reused by the tests of trading-app (the in-memory agent store). -->
   <!-- Pure domain/application module (ADR-0025): no framework or driver may ever reach its classpath, not even transitively. -->
   <build>
     <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <executions><execution><goals><goal>test-jar</goal></goals></execution></executions>
+      </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-enforcer-plugin</artifactId>

@@ -23,6 +23,10 @@
     <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-arena</artifactId></dependency>
     <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-tax</artifactId></dependency>
     <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-application</artifactId></dependency>
+    <dependency>
+      <groupId>com.adrianrevilla.trading</groupId><artifactId>trading-application</artifactId>
+      <version>${project.version}</version><type>test-jar</type><scope>test</scope>
+    </dependency>
     <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-adapter-persistence</artifactId></dependency>
     <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-adapter-marketdata</artifactId></dependency>
     <dependency><groupId>com.adrianrevilla.trading</groupId><artifactId>trading-adapter-notification</artifactId></dependency>

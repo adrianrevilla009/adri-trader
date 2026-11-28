@@ -361,4 +361,35 @@ class ModeServiceTest {
         assertThatThrownBy(() -> service.confirmProdSwitch(null, null, null, "alice"))
                 .isInstanceOf(ConfirmationRejectedException.class);
     }
+
+    // ---- found by mutation testing
+
+    @Test
+    void aCodeOfTheVeryFirstTimeStepIsAccepted() {
+        clock.now = Instant.EPOCH;
+        var service = enabled();
+        var c = service.requestProdSwitch("alice");
+        assertThat(service.confirmProdSwitch(c.challengeId(), codeNow(), PHRASE, "alice").mode()).isEqualTo("PROD");
+    }
+
+    @Test
+    void theRealIdGeneratorGivesLongUniqueHexIds() {
+        var service = new ModeService((l, m) -> { }, log,
+                ProdSwitchPolicy.enabled(SECRET, Duration.ofMinutes(2), 3, Duration.ofMinutes(15)), clock);
+        var ids = new java.util.HashSet<String>();
+        for (int i = 0; i < 50; i++) {
+            ids.add(service.requestProdSwitch("alice").challengeId());
+        }
+        assertThat(ids).hasSize(50).allMatch(id -> id.matches("[0-9a-f]{32}"));
+    }
+
+    @Test
+    void everyStepIsReportedToOpsWithWhoAndWhy() {
+        var service = enabled();
+        service.requestProdSwitch("alice");
+        assertThat(alerts).containsExactly("WARNING:A switch to PROD was requested by alice; waiting for MFA");
+        assertThatThrownBy(() -> service.confirmProdSwitch("id-1", "000000", PHRASE, "alice"))
+                .isInstanceOf(ConfirmationRejectedException.class);
+        assertThat(alerts.get(1)).isEqualTo("WARNING:Switch to PROD rejected (wrong MFA code): alice, failure 1 of 3");
+    }
 }
