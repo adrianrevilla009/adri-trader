@@ -256,12 +256,12 @@ class ModeServiceChaosTest {
                 } catch (RuntimeException expected) {
                     // refusals, lockouts and rejections are the normal answers
                 }
-                if (service.current().mode().equals("PROD")) {
-                    assertThat(prodSwitches.get()).as("seed %d step %d: PROD without a recorded valid switch", seed, i)
-                            .isGreaterThan(seen);
-                    seen = prodSwitches.get();
-                    service.switchTo("DEMO", "alice");
-                }
+                // PROD may only be observed right after an audited valid switch; going back to DEMO is unconditional
+                boolean inProd = service.current().mode().equals("PROD");
+                assertThat(!inProd || prodSwitches.get() > seen)
+                        .as("seed %d step %d: PROD without a recorded valid switch", seed, i).isTrue();
+                seen = prodSwitches.get();
+                service.switchTo("DEMO", "alice");
             }
         }
     }
