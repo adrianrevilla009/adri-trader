@@ -189,3 +189,8 @@
 - Cambio: ADR-0031, `docs/runbook.md`, `CLAUDE.md`, `ProdProperties`, `application.yml`, `docker-compose.yml`, `.env.example` y `scripts/new-mfa-secret.sh`.
 - Por qué: dejar por escrito la decisión y cómo encender la función (apagada por defecto) con un secreto MFA propio.
 - Cómo comprobarlo: `bash scripts/new-mfa-secret.sh` imprime un secreto nuevo; `bash scripts/check-ops.sh` → OK.
+
+38.
+- Cambio: `.gitleaks.toml` (se permite el valor exacto del secreto MFA de prueba).
+- Por qué: el escáner de secretos marcaba la clave de prueba de las pruebas; es la clave pública de ejemplo del RFC 6238, no un secreto real.
+- Cómo comprobarlo: el job «Secret scan» del PR pasa; un secreto distinto en los mismos ficheros se seguiría detectando.
